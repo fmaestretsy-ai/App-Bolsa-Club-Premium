@@ -479,6 +479,14 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     }
   }
 
+  // Populate projected diluted shares from IS sheet into projectedData
+  for (const pd of summaryData.projectedData) {
+    const period = allPeriods.get(pd.year);
+    if (period && period.dilutedShares != null) {
+      pd.dilutedShares = period.dilutedShares;
+    }
+  }
+
   const periods = Array.from(allPeriods.values())
     .filter(p => !p.isProjection)
     .sort((a, b) => a.fiscalYear - b.fiscalYear);
