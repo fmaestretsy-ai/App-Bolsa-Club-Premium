@@ -51,7 +51,7 @@ export default function Projection() {
   };
 
   const lastProj = projections.length > 0 ? projections[projections.length - 1] : null;
-  const firstProj = projections.length > 0 ? projections[0] : null;
+  
 
   // Revenue CAGR over projection period
   const revenueCagr = lastProj && lastPeriod && Number(lastPeriod.revenue) > 0

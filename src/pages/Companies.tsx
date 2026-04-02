@@ -43,6 +43,7 @@ export default function Companies() {
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
+            icon={<Building2 className="h-7 w-7" />}
             title={companies.length === 0 ? "Sin empresas" : "Sin resultados"}
             description={companies.length === 0 ? "Sube un Excel para importar tu primera empresa" : "Intenta con otro término de búsqueda"}
           />

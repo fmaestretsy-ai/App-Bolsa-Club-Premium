@@ -17,12 +17,6 @@ interface ScenarioResult {
   marginOfSafety: number;
 }
 
-const METHODS = [
-  { key: "per", label: "PER", field: "eps" as const },
-  { key: "ev_fcf", label: "EV/FCF", field: "fcfPerShare" as const },
-  { key: "ev_ebitda", label: "EV/EBITDA", field: "ebitda" as const },
-  { key: "ev_ebit", label: "EV/EBIT", field: "ebit" as const },
-];
 
 export function calculateValuation(
   input: ValuationInput,
