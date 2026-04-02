@@ -146,7 +146,7 @@ export default function Valuation() {
         : null;
 
       const marginSafety = (evFcfPrice && currentPrice > 0)
-        ? (evFcfPrice - currentPrice) / evFcfPrice
+        ? evFcfPrice / currentPrice - 1
         : null;
 
       return {
@@ -167,7 +167,8 @@ export default function Valuation() {
     if (targetPrices.length === 0) return null;
     const last = targetPrices[targetPrices.length - 1];
     if (!last.evFcf || targetReturnRate <= 0) return null;
-    const years = last.year - new Date().getFullYear();
+    const firstProjectionYear = targetPrices[0]?.year ?? last.year;
+    const years = last.year - firstProjectionYear + 1;
     return last.evFcf / Math.pow(1 + targetReturnRate / 100, years);
   }, [targetPrices, targetReturnRate]);
 

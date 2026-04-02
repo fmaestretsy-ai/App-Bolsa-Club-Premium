@@ -7,12 +7,22 @@ export function useCompanies() {
   return useQuery({
     queryKey: ["companies"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      const [{ data: companies, error: companiesError }, { data: uploads, error: uploadsError }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("*")
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("excel_uploads")
+          .select("company_id")
+          .not("company_id", "is", null),
+      ]);
+
+      if (companiesError) throw companiesError;
+      if (uploadsError) throw uploadsError;
+
+      const activeCompanyIds = new Set((uploads ?? []).map((upload) => upload.company_id).filter(Boolean));
+      return (companies ?? []).filter((company) => activeCompanyIds.has(company.id));
     },
     enabled: !!user,
   });

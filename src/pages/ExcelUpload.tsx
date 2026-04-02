@@ -33,12 +33,19 @@ export default function ExcelUpload() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("excel_uploads").delete().eq("id", id);
+    mutationFn: async (upload: { id: string; file_path: string | null }) => {
+      if (upload.file_path) {
+        await supabase.storage.from("excel-uploads").remove([upload.file_path]);
+      }
+
+      const { error } = await supabase.from("excel_uploads").delete().eq("id", upload.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["excel-uploads"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
+      queryClient.invalidateQueries({ queryKey: ["version-history"] });
       toast.success("Archivo eliminado");
     },
   });
@@ -384,7 +391,7 @@ export default function ExcelUpload() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => deleteMutation.mutate(u.id)}
+                       onClick={() => deleteMutation.mutate({ id: u.id, file_path: u.file_path })}
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>
