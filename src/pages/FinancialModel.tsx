@@ -250,7 +250,11 @@ export default function FinancialModel() {
   if (companies.length === 0) {
     return (
       <DashboardLayout>
-        <EmptyState icon={Calculator} message="Sube un Excel para ver el modelo financiero" />
+        <EmptyState
+          icon={<Calculator className="h-7 w-7" />}
+          title="Sin datos"
+          description="Sube un Excel para ver el modelo financiero"
+        />
       </DashboardLayout>
     );
   }
