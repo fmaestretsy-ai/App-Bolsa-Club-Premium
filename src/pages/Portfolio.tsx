@@ -5,12 +5,13 @@ import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, Plus, TrendingUp, DollarSign, Loader2 } from "lucide-react";
+import { Briefcase, TrendingUp, DollarSign, Loader2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { TradeDialog } from "@/components/TradeDialog";
 
 const COLORS = [
   "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
@@ -55,26 +56,14 @@ export default function Portfolio() {
     const costBasis = shares * avgCost;
     const gl = currentValue - costBasis;
     const glPct = costBasis > 0 ? (gl / costBasis) * 100 : 0;
-    return {
-      ...p,
-      ticker: p.companies?.ticker || "—",
-      name: p.companies?.name || "—",
-      currentPrice,
-      shares,
-      avgCost,
-      currentValue,
-      gl,
-      glPct,
-    };
+    return { ...p, ticker: p.companies?.ticker || "—", name: p.companies?.name || "—", currentPrice, shares, avgCost, currentValue, gl, glPct };
   });
 
   const totalValue = positionsWithCalc.reduce((s, p) => s + p.currentValue, 0);
   const totalCost = positionsWithCalc.reduce((s, p) => s + p.shares * p.avgCost, 0);
   const totalGain = totalValue - totalCost;
 
-  const pieData = positionsWithCalc
-    .filter((p) => p.currentValue > 0)
-    .map((p) => ({ name: p.ticker, value: p.currentValue }));
+  const pieData = positionsWithCalc.filter((p) => p.currentValue > 0).map((p) => ({ name: p.ticker, value: p.currentValue }));
 
   if (isLoading) {
     return (
@@ -89,16 +78,19 @@ export default function Portfolio() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">{t("portfolio.title")}</h1>
-          {portfolios.length > 1 && (
-            <Select value={portfolioId || ""} onValueChange={setSelectedPortfolio}>
-              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {portfolios.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex gap-2">
+            {portfolios.length > 1 && (
+              <Select value={portfolioId || ""} onValueChange={setSelectedPortfolio}>
+                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {portfolios.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <TradeDialog />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -115,7 +107,7 @@ export default function Portfolio() {
 
         {positionsWithCalc.length === 0 ? (
           <Card className="p-8 text-center">
-            <p className="text-muted-foreground">Sin posiciones. Registra operaciones para verlas aquí.</p>
+            <p className="text-muted-foreground">Sin posiciones. Registra una operación para comenzar.</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -156,14 +148,7 @@ export default function Portfolio() {
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
                         {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                          color: "hsl(var(--card-foreground))",
-                        }}
-                      />
+                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--card-foreground))" }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -174,9 +159,7 @@ export default function Portfolio() {
                         <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                         <span className="text-muted-foreground">{entry.name}</span>
                       </div>
-                      <span className="font-mono text-foreground">
-                        {totalValue > 0 ? ((entry.value / totalValue) * 100).toFixed(1) : 0}%
-                      </span>
+                      <span className="font-mono text-foreground">{totalValue > 0 ? ((entry.value / totalValue) * 100).toFixed(1) : 0}%</span>
                     </div>
                   ))}
                 </div>
