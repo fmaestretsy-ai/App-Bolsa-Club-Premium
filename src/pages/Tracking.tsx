@@ -21,13 +21,21 @@ function pctOf52w(current: number | null, high: number | null, low: number | nul
 
 function PriceBar({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="text-muted-foreground text-xs">—</span>;
-  const color = pct > 70 ? "bg-orange-500" : pct > 40 ? "bg-yellow-500" : "bg-green-500";
+  // Color: green when low in range (cheap), yellow mid, orange/red near high (expensive)
+  const getColor = (p: number) => {
+    if (p <= 33) return "bg-green-500";
+    if (p <= 66) return "bg-yellow-500";
+    return "bg-orange-500";
+  };
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-20 h-2.5 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+    <div className="flex items-center gap-2 min-w-[120px]">
+      <div className="w-24 h-3 bg-muted rounded-sm overflow-hidden relative">
+        <div
+          className={`h-full rounded-sm ${getColor(pct)}`}
+          style={{ width: `${Math.min(100, Math.max(2, pct))}%` }}
+        />
       </div>
-      <span className="text-xs font-medium text-foreground">{pct.toFixed(0)}%</span>
+      <span className="text-xs font-semibold text-foreground whitespace-nowrap">{pct.toFixed(0)}%</span>
     </div>
   );
 }
