@@ -8,6 +8,7 @@ export interface ParsedFinancialData {
   targetPrice5y: number | null;
   priceFor15Return: number | null;
   estimatedAnnualReturn: number | null;
+  currentPrice: number | null;
 }
 
 export interface ParsedPeriod {
