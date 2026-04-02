@@ -87,6 +87,7 @@ export default function Valuation() {
       ebit: Number((p as any).ebit) || null,
       netIncome: Number(p.net_income) || null,
       fcf: Number(p.fcf) || null,
+      dilutedShares: Number(p.diluted_shares) || null,
     }));
 
   const allYears = [...historicalYears, ...projectionYears];
