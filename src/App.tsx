@@ -15,6 +15,7 @@ import CompanyDetail from "./pages/CompanyDetail";
 import ExcelUpload from "./pages/ExcelUpload";
 import FinancialHistory from "./pages/FinancialHistory";
 import Valuation from "./pages/Valuation";
+import FinancialModel from "./pages/FinancialModel";
 import Projection from "./pages/Projection";
 import Portfolio from "./pages/Portfolio";
 import TradeHistory from "./pages/TradeHistory";
