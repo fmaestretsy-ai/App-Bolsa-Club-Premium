@@ -94,6 +94,20 @@ export function AppSidebar() {
           <button onClick={toggleLang} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors text-xs font-semibold">
             {i18n.language === "es" ? "EN" : "ES"}
           </button>
+          <button onClick={async () => { await signOut(); navigate("/login"); }} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+          <button onClick={toggleTheme} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button onClick={toggleLang} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors text-xs font-semibold">
+            {i18n.language === "es" ? "EN" : "ES"}
+          </button>
         </div>
       </SidebarFooter>
     </Sidebar>
