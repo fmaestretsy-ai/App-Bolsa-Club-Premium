@@ -5,6 +5,35 @@ export interface ProjectionTarget {
   targetPrice: number;
 }
 
+export interface ProjectionData {
+  year: number;
+  marketCap: number | null;
+  netDebt: number | null;
+  ev: number | null;
+  ebitda: number | null;
+  ebit: number | null;
+  netIncome: number | null;
+  fcf: number | null;
+  dilutedShares: number | null;
+}
+
+export interface ValuationTargets {
+  targetPer: number | null;
+  targetEvFcf: number | null;
+  targetEvEbitda: number | null;
+  targetEvEbit: number | null;
+  targetReturnRate: number | null;
+}
+
+export interface TargetPriceByMethod {
+  year: number;
+  perExCash: number | null;
+  evFcf: number | null;
+  evEbitda: number | null;
+  evEbit: number | null;
+  average: number | null;
+}
+
 export interface ParsedFinancialData {
   companyName: string | null;
   ticker: string | null;
@@ -15,6 +44,9 @@ export interface ParsedFinancialData {
   estimatedAnnualReturn: number | null;
   currentPrice: number | null;
   projectionTargets: ProjectionTarget[];
+  projectedData: ProjectionData[];
+  valuationTargets: ValuationTargets;
+  targetPricesByMethod: TargetPriceByMethod[];
 }
 
 export interface ParsedPeriod {
@@ -73,7 +105,6 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^Book Value per Share|^BVPS$/i, "bvps"],
 ];
 
-// Growth row patterns (Y/Y Growth lines depend on context)
 const GROWTH_CONTEXT: Record<string, keyof ParsedPeriod> = {
   revenue: "revenueGrowth",
   netIncome: "netIncomeGrowth",
@@ -85,7 +116,6 @@ function parseNumericValue(val: unknown): number | null {
   if (typeof val === "number") return val;
   const s = String(val).replace(/[()$,]/g, "").replace(/\s/g, "").trim();
   if (s === "" || s === "-") return null;
-  // Handle percentage
   if (s.endsWith("%")) {
     const n = parseFloat(s);
     return isNaN(n) ? null : n / 100;
@@ -101,7 +131,6 @@ function detectYearColumns(row: unknown[]): { indices: number[]; years: number[]
 
   for (let i = 1; i < row.length; i++) {
     const cell = String(row[i] ?? "").trim();
-    // Match year patterns: 2024, 2025e, 12/31/24
     const yearMatch = cell.match(/^(\d{4})[eE]?$/) || cell.match(/\d{1,2}\/\d{1,2}\/(\d{2,4})/);
     if (yearMatch) {
       let year = parseInt(yearMatch[1]);
@@ -126,39 +155,138 @@ function detectCompanyFromFileName(fileName: string): { name: string | null; tic
   return { name: nameCandidate, ticker: tickerCandidate || null };
 }
 
-function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetPrice5y: number | null; priceFor15Return: number | null; estimatedAnnualReturn: number | null; currentPrice: number | null; projectionTargets: ProjectionTarget[] } {
+// Valuation sheet row labels for projected data
+const VALUATION_ROW_MAP: [RegExp, keyof ProjectionData][] = [
+  [/^Market cap$/i, "marketCap"],
+  [/^Deuda Neta$/i, "netDebt"],
+  [/^Enterprise Value/i, "ev"],
+  [/^EBITDA$/i, "ebitda"],
+  [/^EBIT$/i, "ebit"],
+  [/^Net income$/i, "netIncome"],
+  [/^FCF$/i, "fcf"],
+];
+
+function extractSummaryData(wb: XLSX.WorkBook): {
+  sector: string | null;
+  targetPrice5y: number | null;
+  priceFor15Return: number | null;
+  estimatedAnnualReturn: number | null;
+  currentPrice: number | null;
+  projectionTargets: ProjectionTarget[];
+  projectedData: ProjectionData[];
+  valuationTargets: ValuationTargets;
+  targetPricesByMethod: TargetPriceByMethod[];
+} {
   let sector: string | null = null;
   let targetPrice5y: number | null = null;
   let priceFor15Return: number | null = null;
   let estimatedAnnualReturn: number | null = null;
   let currentPrice: number | null = null;
   const projectionTargets: ProjectionTarget[] = [];
+  const projectedData: ProjectionData[] = [];
+  const valuationTargets: ValuationTargets = {
+    targetPer: null,
+    targetEvFcf: null,
+    targetEvEbitda: null,
+    targetEvEbit: null,
+    targetReturnRate: null,
+  };
+  const targetPricesByMethod: TargetPriceByMethod[] = [];
 
-  // Find valuation sheet (commonly named "4.Valoracion", "Valoracion", "Valuation")
   const valSheetName = wb.SheetNames.find(s => /valoraci[oó]n|valuation/i.test(s));
   if (valSheetName) {
     const sheet = wb.Sheets[valSheetName];
     const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
-    // Track whether we're in "Precio objetivo" section
+    // Detect year columns from row 1 (the header row with years)
+    let mainYearInfo: ReturnType<typeof detectYearColumns> | null = null;
+    for (let r = 0; r < Math.min(data.length, 5); r++) {
+      const row = data[r];
+      if (!row) continue;
+      const detected = detectYearColumns(row);
+      if (detected.years.length >= 5) {
+        mainYearInfo = detected;
+        break;
+      }
+    }
+
+    // Build projection year indices (only "e" years)
+    const projYears: number[] = [];
+    const projIndices: number[] = [];
+    if (mainYearInfo) {
+      for (let i = 0; i < mainYearInfo.years.length; i++) {
+        if (mainYearInfo.projectionStart != null && mainYearInfo.years[i] >= mainYearInfo.projectionStart) {
+          projYears.push(mainYearInfo.years[i]);
+          projIndices.push(mainYearInfo.indices[i]);
+        }
+      }
+    }
+
+    // Initialize projectedData
+    for (const year of projYears) {
+      projectedData.push({
+        year,
+        marketCap: null, netDebt: null, ev: null,
+        ebitda: null, ebit: null, netIncome: null, fcf: null,
+        dilutedShares: null,
+      });
+    }
+
     let inPrecioObjetivoSection = false;
     let precioObjetivoYears: number[] = [];
     let precioObjetivoColIndices: number[] = [];
+    let inMultiplosObjetivoSection = false;
 
     for (let r = 0; r < data.length; r++) {
       const row = data[r];
       if (!row) continue;
       const label = String(row[0] ?? "").trim();
 
-      // "Precio por acción actual" → col B (index 1) has current price
+      // Extract projected financial data (rows 2-9 in valuation sheet)
+      if (mainYearInfo && projYears.length > 0) {
+        for (const [pattern, field] of VALUATION_ROW_MAP) {
+          if (pattern.test(label)) {
+            for (let i = 0; i < projIndices.length; i++) {
+              const val = parseNumericValue(row[projIndices[i]]);
+              if (val !== null) {
+                const pd = projectedData.find(p => p.year === projYears[i]);
+                if (pd) (pd as any)[field] = val;
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // Current price
       if (/precio por acci[oó]n actual|current.*price/i.test(label)) {
         currentPrice = parseNumericValue(row[1]);
       }
 
-      // Detect "Precio objetivo" section header
+      // "Múltiplos de valoración" with "Objetivo" in col B
+      if (/^M[uú]ltiplos de valoraci[oó]n/i.test(label) && String(row[1] ?? "").trim().toLowerCase() === "objetivo") {
+        inMultiplosObjetivoSection = true;
+        continue;
+      }
+
+      // Extract target multiples (editable orange cells)
+      if (inMultiplosObjetivoSection) {
+        if (/^PER$/i.test(label)) {
+          valuationTargets.targetPer = parseNumericValue(row[1]);
+        } else if (/^EV\s*\/\s*FCF/i.test(label)) {
+          valuationTargets.targetEvFcf = parseNumericValue(row[1]);
+        } else if (/^EV\s*\/\s*EBITDA/i.test(label)) {
+          valuationTargets.targetEvEbitda = parseNumericValue(row[1]);
+        } else if (/^EV\s*\/\s*EBIT/i.test(label)) {
+          valuationTargets.targetEvEbit = parseNumericValue(row[1]);
+          inMultiplosObjetivoSection = false;
+        }
+        continue;
+      }
+
+      // "Precio objetivo" section
       if (/^Precio objetivo$/i.test(label)) {
         inPrecioObjetivoSection = true;
-        // The next row or same row might have year headers — scan this row and the next few for years
         for (let scanR = r; scanR < Math.min(r + 3, data.length); scanR++) {
           const scanRow = data[scanR];
           if (!scanRow) continue;
@@ -172,51 +300,81 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
         continue;
       }
 
-      // In the "Precio objetivo" section, find the "EV / FCF" row
-      if (inPrecioObjetivoSection && /^EV\s*\/\s*FCF/i.test(label)) {
-        // Extract year-by-year target prices
-        if (precioObjetivoYears.length > 0 && precioObjetivoColIndices.length > 0) {
-          for (let i = 0; i < precioObjetivoYears.length; i++) {
-            const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
-            if (val && val > 1) {
-              projectionTargets.push({ year: precioObjetivoYears[i], targetPrice: val });
+      // Extract target prices by method
+      if (inPrecioObjetivoSection && precioObjetivoYears.length > 0) {
+        const methodMap: Record<string, keyof TargetPriceByMethod> = {
+          "per ex cash": "perExCash",
+          "ev / fcf": "evFcf",
+          "ev / ebitda": "evEbitda",
+          "ev / ebit": "evEbit",
+          "promedio": "average",
+        };
+
+        const lowerLabel = label.toLowerCase().trim();
+        for (const [key, field] of Object.entries(methodMap)) {
+          if (lowerLabel.startsWith(key)) {
+            for (let i = 0; i < precioObjetivoYears.length; i++) {
+              const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
+              let existing = targetPricesByMethod.find(t => t.year === precioObjetivoYears[i]);
+              if (!existing) {
+                existing = { year: precioObjetivoYears[i], perExCash: null, evFcf: null, evEbitda: null, evEbit: null, average: null };
+                targetPricesByMethod.push(existing);
+              }
+              if (val !== null && val > 1) {
+                (existing as any)[field] = val;
+              }
             }
-          }
-        }
 
-        // Fallback: use col 5 for 5Y target if no year columns detected
-        if (projectionTargets.length === 0) {
-          const target = parseNumericValue(row[5]);
-          if (target && target > 1) targetPrice5y = target;
-        } else {
-          // Last projection year = 5Y target
-          targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
-        }
+            // For EV/FCF row, also extract CAGR and projection targets
+            if (field === "evFcf") {
+              for (let i = 0; i < precioObjetivoYears.length; i++) {
+                const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
+                if (val && val > 1) {
+                  projectionTargets.push({ year: precioObjetivoYears[i], targetPrice: val });
+                }
+              }
+              // CAGR
+              for (let c = row.length - 1; c >= 6; c--) {
+                const val = parseNumericValue(row[c]);
+                if (val !== null && Math.abs(val) < 1) {
+                  estimatedAnnualReturn = val;
+                  break;
+                }
+              }
+            }
 
-        // CAGR from last numeric columns (typically col 10 or after the year data)
-        for (let c = row.length - 1; c >= 6; c--) {
-          const val = parseNumericValue(row[c]);
-          if (val !== null && Math.abs(val) < 1) {
-            estimatedAnnualReturn = val;
+            if (field === "average" || field === "evEbit") {
+              // Check if we've processed all methods
+            }
             break;
           }
         }
-        inPrecioObjetivoSection = false;
+
+        // Margin of safety row ends the section
+        if (/^Margen de seguridad/i.test(label)) {
+          inPrecioObjetivoSection = false;
+        }
       }
 
-      // "Retorno anual objetivo" → col C (index 2) = price for 15% return
+      // "Retorno anual objetivo"
       if (/retorno anual objetivo/i.test(label)) {
+        valuationTargets.targetReturnRate = parseNumericValue(row[1]);
         priceFor15Return = parseNumericValue(row[2]);
       }
     }
+
+    // Set 5Y target from last projection
+    if (projectionTargets.length > 0) {
+      targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
+    }
   }
 
-  // Try to detect sector from any sheet
+  // Detect sector from any sheet
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
-    const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-    for (let r = 0; r < Math.min(data.length, 60); r++) {
-      const row = data[r];
+    const sheetData: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    for (let r = 0; r < Math.min(sheetData.length, 60); r++) {
+      const row = sheetData[r];
       if (!row) continue;
       const label = String(row[0] ?? "").trim();
       if (!sector && /^Sector$|^Industry$|^Industria$/i.test(label) && row[1]) {
@@ -226,7 +384,7 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
     if (sector) break;
   }
 
-  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn, currentPrice, projectionTargets };
+  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn, currentPrice, projectionTargets, projectedData, valuationTargets, targetPricesByMethod };
 }
 
 export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFinancialData {
@@ -235,19 +393,18 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
   const summaryData = extractSummaryData(wb);
 
   const allPeriods = new Map<number, ParsedPeriod>();
-
   const sheetsToProcess = wb.SheetNames.slice(0, 4);
 
   for (const sheetName of sheetsToProcess) {
     const sheet = wb.Sheets[sheetName];
-    const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-    if (data.length < 3) continue;
+    const sheetData: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    if (sheetData.length < 3) continue;
 
     let yearInfo: ReturnType<typeof detectYearColumns> | null = null;
     let yearRowIdx = -1;
 
-    for (let r = 0; r < Math.min(data.length, 10); r++) {
-      const row = data[r];
+    for (let r = 0; r < Math.min(sheetData.length, 10); r++) {
+      const row = sheetData[r];
       if (!row) continue;
       const detected = detectYearColumns(row);
       if (detected.years.length >= 3) {
@@ -279,8 +436,8 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
 
     let lastMatchedMetric: string | null = null;
 
-    for (let r = yearRowIdx + 1; r < data.length; r++) {
-      const row = data[r];
+    for (let r = yearRowIdx + 1; r < sheetData.length; r++) {
+      const row = sheetData[r];
       if (!row || !row[0]) continue;
       const label = String(row[0]).trim();
       if (!label) continue;
@@ -333,6 +490,9 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     estimatedAnnualReturn: summaryData.estimatedAnnualReturn,
     currentPrice: summaryData.currentPrice,
     projectionTargets: summaryData.projectionTargets,
+    projectedData: summaryData.projectedData,
+    valuationTargets: summaryData.valuationTargets,
+    targetPricesByMethod: summaryData.targetPricesByMethod,
   };
 }
 

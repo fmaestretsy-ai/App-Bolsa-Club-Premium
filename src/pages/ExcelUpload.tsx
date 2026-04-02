@@ -55,7 +55,6 @@ export default function ExcelUpload() {
       const buffer = await file.arrayBuffer();
       const fileHash = await computeFileHash(buffer);
 
-      // Check for duplicates
       const { data: existing } = await supabase
         .from("excel_uploads")
         .select("id")
@@ -69,7 +68,6 @@ export default function ExcelUpload() {
         return;
       }
 
-      // Parse the Excel file
       let parsed: ParsedFinancialData;
       try {
         parsed = parseExcelFile(buffer, file.name);
@@ -79,7 +77,6 @@ export default function ExcelUpload() {
         return;
       }
 
-      // Upload file to storage
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
       const { error: storageError } = await supabase.storage
         .from("excel-uploads")
@@ -87,7 +84,6 @@ export default function ExcelUpload() {
 
       if (storageError) throw storageError;
 
-      // Find or create company
       let companyId: string | null = null;
       if (parsed.ticker) {
         const { data: existingCompany } = await supabase
@@ -126,7 +122,6 @@ export default function ExcelUpload() {
         }
       }
 
-      // Create upload record
       const { data: uploadRecord, error: uploadError } = await supabase
         .from("excel_uploads")
         .insert({
@@ -146,9 +141,8 @@ export default function ExcelUpload() {
 
       if (uploadError) throw uploadError;
 
-      // Insert financial periods
+      // Insert financial periods (historical)
       if (companyId && parsed.periods.length > 0) {
-        // Delete existing periods for this company to avoid duplicates
         await supabase
           .from("financial_periods")
           .delete()
@@ -194,25 +188,78 @@ export default function ExcelUpload() {
         if (periodsError) throw periodsError;
       }
 
-      // Insert projection targets from valuation sheet
-      if (companyId && parsed.projectionTargets.length > 0) {
+      // Insert projection years with full financial data
+      if (companyId) {
         await supabase
           .from("projection_years")
           .delete()
           .eq("company_id", companyId)
           .eq("user_id", user.id);
 
-        const projectionsToInsert = parsed.projectionTargets.map((pt) => ({
-          user_id: user.id,
-          company_id: companyId!,
-          projection_year: pt.year,
-          target_price: pt.targetPrice,
-        }));
+        const projRows: any[] = [];
 
-        await supabase.from("projection_years").insert(projectionsToInsert);
+        // Merge projectedData with projectionTargets (EV/FCF target prices)
+        const allProjYears = new Set([
+          ...parsed.projectedData.map(p => p.year),
+          ...parsed.projectionTargets.map(p => p.year),
+        ]);
+
+        for (const year of allProjYears) {
+          const pd = parsed.projectedData.find(p => p.year === year);
+          const pt = parsed.projectionTargets.find(p => p.year === year);
+          projRows.push({
+            user_id: user.id,
+            company_id: companyId!,
+            projection_year: year,
+            target_price: pt?.targetPrice ?? null,
+            ebitda: pd?.ebitda ?? null,
+            ebit: pd?.ebit ?? null,
+            net_income: pd?.netIncome ?? null,
+            fcf: pd?.fcf ?? null,
+            net_debt: pd?.netDebt ?? null,
+            market_cap: pd?.marketCap ?? null,
+            ev: pd?.ev ?? null,
+            diluted_shares: pd?.dilutedShares ?? null,
+          });
+        }
+
+        if (projRows.length > 0) {
+          await supabase.from("projection_years").insert(projRows);
+        }
+
+        // Save valuation target multiples in company_assumptions
+        const vt = parsed.valuationTargets;
+        if (vt.targetPer || vt.targetEvFcf || vt.targetEvEbitda || vt.targetEvEbit) {
+          const { data: existingAssumptions } = await supabase
+            .from("company_assumptions")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          const assumptionData: any = {
+            target_pe: vt.targetPer,
+            fcf_multiple: vt.targetEvFcf,
+            ev_ebitda_multiple: vt.targetEvEbitda,
+            ev_ebit_multiple: vt.targetEvEbit,
+            target_return_rate: vt.targetReturnRate != null ? vt.targetReturnRate * 100 : 15,
+          };
+
+          if (existingAssumptions) {
+            await supabase.from("company_assumptions").update(assumptionData).eq("id", existingAssumptions.id);
+          } else {
+            await supabase.from("company_assumptions").insert({
+              ...assumptionData,
+              user_id: user.id,
+              company_id: companyId,
+            });
+          }
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["projection-years"] });
+      queryClient.invalidateQueries({ queryKey: ["assumptions"] });
       toast.success(
         `${t("upload.success")} — ${parsed.periods.length} períodos extraídos${parsed.ticker ? ` para ${parsed.ticker}` : ""}`
       );

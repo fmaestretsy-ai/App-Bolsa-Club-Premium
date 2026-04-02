@@ -2,15 +2,22 @@ import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
-import { useState, useMemo } from "react";
-import { useCompanies, useFinancialPeriods, useCompanyAssumptions } from "@/hooks/useCompanyData";
-import { calculateValuation, getRecommendation } from "@/lib/valuationEngine";
+import { useState, useMemo, useCallback } from "react";
+import { useCompanies, useFinancialPeriods, useCompanyAssumptions, useProjectionYears } from "@/hooks/useCompanyData";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
 
 export default function Valuation() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: companies = [], isLoading } = useCompanies();
   const [selectedId, setSelectedId] = useState<string>("");
 
@@ -18,48 +25,191 @@ export default function Valuation() {
   const company = companies.find((c) => c.id === companyId);
   const { data: periods = [] } = useFinancialPeriods(companyId);
   const { data: assumptions } = useCompanyAssumptions(companyId);
+  const { data: projections = [] } = useProjectionYears(companyId);
 
-  const lastPeriod = periods.length > 0 ? periods[periods.length - 1] : null;
+  // Editable state for target multiples
+  const [localTargets, setLocalTargets] = useState<Record<string, number>>({});
 
-  const results = useMemo(() => {
-    if (!lastPeriod || !company) return [];
-    const a = assumptions || { target_pe: 25, fcf_multiple: 25, conservative_discount: 15, optimistic_premium: 15 };
-    return calculateValuation(
-      {
-        eps: Number(lastPeriod.eps) || 0,
-        fcfPerShare: Number(lastPeriod.fcf_per_share) || 0,
-        ebitda: Number(lastPeriod.ebitda) || 0,
-        ebit: Number(lastPeriod.ebit) || 0,
-        netDebt: Number(lastPeriod.net_debt) || 0,
-        dilutedShares: Number(lastPeriod.diluted_shares) || 0,
-        currentPrice: Number(company.current_price) || 0,
-      },
-      {
-        targetPe: Number(a.target_pe) || 25,
-        fcfMultiple: Number(a.fcf_multiple) || 25,
-        conservativeDiscount: Number(a.conservative_discount) || 15,
-        optimisticPremium: Number(a.optimistic_premium) || 15,
-      }
-    );
-  }, [lastPeriod, company, assumptions]);
+  const targetPer = localTargets.targetPer ?? (Number(assumptions?.target_pe) || 25);
+  const targetEvFcf = localTargets.targetEvFcf ?? (Number(assumptions?.fcf_multiple) || 25);
+  const targetEvEbitda = localTargets.targetEvEbitda ?? (Number((assumptions as any)?.ev_ebitda_multiple) || 17);
+  const targetEvEbit = localTargets.targetEvEbit ?? (Number((assumptions as any)?.ev_ebit_multiple) || 19);
+  const targetReturnRate = localTargets.targetReturnRate ?? (Number((assumptions as any)?.target_return_rate) || 15);
 
-  const scenarios = ["conservative", "base", "optimistic"].map((scenario) => {
-    const sr = results.filter((r) => r.scenarioType === scenario);
-    const avg = sr.length > 0 ? sr.reduce((s, r) => s + r.intrinsicValue, 0) / sr.length : 0;
-    const avgUp = sr.length > 0 ? sr.reduce((s, r) => s + r.upside, 0) / sr.length : 0;
-    return { name: scenario, value: avg, upside: avgUp };
-  });
+  const currentPrice = Number(company?.current_price) || 0;
 
-  const baseScenario = scenarios.find((s) => s.name === "base");
-  const recommendation = baseScenario ? getRecommendation(baseScenario.upside) : null;
-  const recLabels = { buy: t("valuation.buy"), hold: t("valuation.hold"), sell: t("valuation.sell") };
-  const recColors = { buy: "bg-green-600", hold: "bg-yellow-500", sell: "bg-red-500" };
-  const scenarioLabels: Record<string, string> = {
-    conservative: t("valuation.conservative"),
-    base: t("valuation.base"),
-    optimistic: t("valuation.optimistic"),
+  const handleTargetChange = useCallback(async (field: string, dbField: string, value: number) => {
+    setLocalTargets(prev => ({ ...prev, [field]: value }));
+    if (!companyId || !user) return;
+
+    const { data: existing } = await supabase
+      .from("company_assumptions")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const updateData = { [dbField]: value } as any;
+    if (existing) {
+      await supabase.from("company_assumptions").update(updateData).eq("id", existing.id);
+    } else {
+      await supabase.from("company_assumptions").insert({
+        ...updateData,
+        user_id: user.id,
+        company_id: companyId,
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: ["assumptions", companyId] });
+  }, [companyId, user, queryClient]);
+
+  // Historical + projected data for the top table
+  const historicalYears = periods.map(p => ({
+    year: p.fiscal_year,
+    isProjection: false,
+    marketCap: null as number | null,
+    netDebt: Number(p.net_debt) || null,
+    ev: null as number | null,
+    ebitda: Number(p.ebitda) || null,
+    ebit: Number(p.ebit) || null,
+    netIncome: Number(p.net_income) || null,
+    fcf: Number(p.fcf) || null,
+  }));
+
+  const projectionYears = projections
+    .sort((a, b) => a.projection_year - b.projection_year)
+    .map(p => ({
+      year: p.projection_year,
+      isProjection: true,
+      marketCap: Number((p as any).market_cap) || null,
+      netDebt: Number((p as any).net_debt) || null,
+      ev: Number((p as any).ev) || null,
+      ebitda: Number((p as any).ebitda) || null,
+      ebit: Number((p as any).ebit) || null,
+      netIncome: Number(p.net_income) || null,
+      fcf: Number(p.fcf) || null,
+    }));
+
+  const allYears = [...historicalYears, ...projectionYears];
+
+  // Valuation multiples (calculated)
+  const multiplesData = useMemo(() => {
+    return allYears.map(y => {
+      const mc = y.marketCap;
+      const nd = y.netDebt;
+      const ev = y.ev ?? ((mc && nd) ? mc + nd : null);
+      return {
+        year: y.year,
+        isProjection: y.isProjection,
+        per: (mc && y.netIncome && y.netIncome > 0) ? mc / y.netIncome : null,
+        evFcf: (ev && y.fcf && y.fcf > 0) ? ev / y.fcf : null,
+        evEbitda: (ev && y.ebitda && y.ebitda > 0) ? ev / y.ebitda : null,
+        evEbit: (ev && y.ebit && y.ebit > 0) ? ev / y.ebit : null,
+      };
+    });
+  }, [allYears]);
+
+  // Calculate target prices by method
+  const targetPrices = useMemo(() => {
+    if (projectionYears.length === 0) return [];
+
+    // Get diluted shares from last historical period
+    const lastHistorical = periods[periods.length - 1];
+    const shares = Number(lastHistorical?.diluted_shares) || 1;
+
+    return projectionYears.map(py => {
+      const nd = py.netDebt || 0;
+
+      // PER ex Cash: (Net Income × PER + |Net Debt|) / shares
+      const perPrice = py.netIncome
+        ? (py.netIncome * targetPer - nd) / shares
+        : null;
+
+      // EV/FCF: (FCF × multiple + Net Debt adjustment) / shares
+      const evFcfPrice = py.fcf
+        ? (py.fcf * targetEvFcf + nd) / shares
+        : null;
+
+      // EV/EBITDA: (EBITDA × multiple + Net Debt) / shares
+      const evEbitdaPrice = py.ebitda
+        ? (py.ebitda * targetEvEbitda + nd) / shares
+        : null;
+
+      // EV/EBIT
+      const evEbitPrice = py.ebit
+        ? (py.ebit * targetEvEbit + nd) / shares
+        : null;
+
+      const prices = [perPrice, evFcfPrice, evEbitdaPrice, evEbitPrice].filter(v => v !== null) as number[];
+      const average = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : null;
+
+      const yearDiff = py.year - new Date().getFullYear();
+      const cagrEvFcf = (evFcfPrice && currentPrice > 0 && yearDiff > 0)
+        ? Math.pow(evFcfPrice / currentPrice, 1 / yearDiff) - 1
+        : null;
+
+      const marginSafety = (evFcfPrice && currentPrice > 0)
+        ? (evFcfPrice - currentPrice) / evFcfPrice
+        : null;
+
+      return {
+        year: py.year,
+        perExCash: perPrice,
+        evFcf: evFcfPrice,
+        evEbitda: evEbitdaPrice,
+        evEbit: evEbitPrice,
+        average,
+        cagrEvFcf,
+        marginSafety,
+      };
+    });
+  }, [projectionYears, periods, targetPer, targetEvFcf, targetEvEbitda, targetEvEbit, currentPrice]);
+
+  // Price for target return
+  const priceForTargetReturn = useMemo(() => {
+    if (targetPrices.length === 0) return null;
+    const last = targetPrices[targetPrices.length - 1];
+    if (!last.evFcf || targetReturnRate <= 0) return null;
+    const years = last.year - new Date().getFullYear();
+    return last.evFcf / Math.pow(1 + targetReturnRate / 100, years);
+  }, [targetPrices, targetReturnRate]);
+
+  const fmt = (n: number | null | undefined, decimals = 0) => {
+    if (n == null) return "—";
+    if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(decimals)}M`;
+    if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(decimals)}K`;
+    return n.toFixed(decimals);
   };
-  const scenarioColors = { conservative: "bg-yellow-500", base: "bg-primary", optimistic: "bg-green-500" };
+
+  const fmtPrice = (n: number | null | undefined) => {
+    if (n == null) return "—";
+    return `$${n.toFixed(2)}`;
+  };
+
+  const pct = (n: number | null | undefined) => {
+    if (n == null) return "—";
+    return `${(n * 100).toFixed(1)}%`;
+  };
+
+  const fmtMultiple = (n: number | null | undefined) => {
+    if (n == null) return "—";
+    return `${n.toFixed(1)}x`;
+  };
+
+  // Chart data for target prices
+  const chartData = targetPrices.map(tp => ({
+    year: tp.year,
+    "PER ex Cash": tp.perExCash,
+    "EV/FCF": tp.evFcf,
+    "EV/EBITDA": tp.evEbitda,
+    "EV/EBIT": tp.evEbit,
+    Promedio: tp.average,
+  }));
+
+  // Margin of safety chart
+  const mosData = targetPrices.map(tp => ({
+    year: tp.year,
+    "Margen de Seguridad": tp.marginSafety ? tp.marginSafety * 100 : 0,
+  }));
 
   if (isLoading) {
     return (
@@ -69,12 +219,14 @@ export default function Valuation() {
     );
   }
 
+  const hasData = allYears.length > 0 && projectionYears.length > 0;
+
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">{t("valuation.title")}</h1>
-          <Select value={companyId || ""} onValueChange={setSelectedId}>
+          <Select value={companyId || ""} onValueChange={(v) => { setSelectedId(v); setLocalTargets({}); }}>
             <SelectTrigger className="w-56"><SelectValue placeholder="Selecciona empresa" /></SelectTrigger>
             <SelectContent>
               {companies.map((c) => (
@@ -84,82 +236,316 @@ export default function Valuation() {
           </Select>
         </div>
 
-        {results.length === 0 ? (
+        {!hasData ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
               {companies.length === 0
                 ? "Sube un Excel para calcular valoraciones"
-                : "Sin datos financieros para esta empresa"}
+                : "Sin datos de valoración. Re-sube el Excel para extraer los datos."}
             </p>
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {scenarios.map((s) => (
-                <Card key={s.name} className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-muted-foreground">{scenarioLabels[s.name]}</p>
-                    <div className={`h-2 w-2 rounded-full ${scenarioColors[s.name as keyof typeof scenarioColors]}`} />
-                  </div>
-                  <p className="text-3xl font-bold text-card-foreground">${s.value.toFixed(2)}</p>
-                  <p className={`text-sm font-semibold mt-1 ${s.upside >= 0 ? "text-green-500" : "text-red-500"}`}>
-                    {s.upside >= 0 ? "+" : ""}{s.upside.toFixed(1)}% upside
-                  </p>
-                </Card>
-              ))}
-            </div>
+            {/* Section 1: Valoración (millones) */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-card-foreground">Valoración (millones)</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-card z-10 min-w-[140px]">Concepto</TableHead>
+                      {allYears.map(y => (
+                        <TableHead key={y.year} className={`text-right min-w-[90px] ${y.isProjection ? "text-orange-400" : ""}`}>
+                          {y.year}{y.isProjection ? "e" : ""}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { label: "EBITDA", key: "ebitda" },
+                      { label: "EBIT", key: "ebit" },
+                      { label: "Net Income", key: "netIncome" },
+                      { label: "FCF", key: "fcf" },
+                      { label: "Deuda Neta", key: "netDebt" },
+                    ].map(({ label, key }) => (
+                      <TableRow key={key}>
+                        <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
+                        {allYears.map(y => (
+                          <TableCell key={y.year} className={`text-right font-mono text-sm ${y.isProjection ? "text-orange-400" : "text-foreground"}`}>
+                            {fmt((y as any)[key])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
 
-            {baseScenario && recommendation && company && (
-              <Card className="p-6">
-                <h3 className="font-semibold text-card-foreground mb-6">{t("valuation.recommendation")}</h3>
-                <div className="flex flex-col items-center">
-                  <Badge className={`${recColors[recommendation]} text-primary-foreground text-lg px-6 py-2 mb-4`}>
-                    {recLabels[recommendation]}
-                  </Badge>
-                  <div className="w-full max-w-lg space-y-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{t("companies.currentPrice")}</span>
-                      <span className="font-mono text-foreground">${Number(company.current_price || 0).toFixed(2)}</span>
+            {/* Section 2: Múltiplos de valoración */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-card-foreground">Múltiplos de valoración</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-card z-10 min-w-[140px]">Múltiplo</TableHead>
+                      {multiplesData.map(m => (
+                        <TableHead key={m.year} className={`text-right min-w-[80px] ${m.isProjection ? "text-orange-400" : ""}`}>
+                          {m.year}{m.isProjection ? "e" : ""}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { label: "PER", key: "per" },
+                      { label: "EV / FCF", key: "evFcf" },
+                      { label: "EV / EBITDA", key: "evEbitda" },
+                      { label: "EV / EBIT", key: "evEbit" },
+                    ].map(({ label, key }) => (
+                      <TableRow key={key}>
+                        <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
+                        {multiplesData.map(m => (
+                          <TableCell key={m.year} className={`text-right font-mono text-sm ${m.isProjection ? "text-orange-400" : "text-foreground"}`}>
+                            {fmtMultiple((m as any)[key])}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            {/* Section 3: Editable target multiples + Current price */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-5">
+                <h3 className="text-sm font-semibold text-card-foreground mb-1">Precio por acción actual</h3>
+                <p className="text-3xl font-bold text-foreground">{currentPrice > 0 ? `$${currentPrice.toFixed(0)}` : "—"}</p>
+              </Card>
+
+              <Card className="p-5">
+                <h3 className="text-sm font-semibold text-card-foreground mb-3">
+                  Múltiplos de valoración objetivo
+                  <span className="ml-2 text-xs font-normal text-orange-400">▶ Ajustar manualmente</span>
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "PER", field: "targetPer", dbField: "target_pe", value: targetPer },
+                    { label: "EV / FCF", field: "targetEvFcf", dbField: "fcf_multiple", value: targetEvFcf },
+                    { label: "EV / EBITDA", field: "targetEvEbitda", dbField: "ev_ebitda_multiple", value: targetEvEbitda },
+                    { label: "EV / EBIT", field: "targetEvEbit", dbField: "ev_ebit_multiple", value: targetEvEbit },
+                  ].map(({ label, field, dbField, value }) => (
+                    <div key={field}>
+                      <label className="text-xs text-muted-foreground">{label}</label>
+                      <Input
+                        type="number"
+                        value={value}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v)) handleTargetChange(field, dbField, v);
+                        }}
+                        className="mt-1 h-8 text-sm font-mono border-orange-400/50 text-orange-400 bg-orange-400/5"
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{t("valuation.intrinsicValue")} ({t("valuation.base")})</span>
-                      <span className="font-mono text-foreground">${baseScenario.value.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">{t("valuation.marginOfSafety")}</span>
-                        <span className={`font-semibold ${baseScenario.upside >= 0 ? "text-green-500" : "text-red-500"}`}>
-                          {baseScenario.upside.toFixed(1)}%
-                        </span>
-                      </div>
-                      <Progress value={Math.min(100, Math.max(0, 50 + baseScenario.upside))} className="h-2" />
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </Card>
-            )}
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {["per", "ev_fcf", "ev_ebitda", "ev_ebit"].map((method) => {
-                const methodResults = results.filter((r) => r.method === method && r.scenarioType === "base");
-                if (methodResults.length === 0) return null;
-                const r = methodResults[0];
-                return (
-                  <Card key={method} className="p-5">
-                    <h3 className="text-sm font-semibold text-card-foreground mb-3">{method.toUpperCase()}</h3>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Valor intrínseco</span>
-                      <span className="font-mono text-foreground">${r.intrinsicValue.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-muted-foreground">Upside</span>
-                      <span className={`font-semibold ${r.upside >= 0 ? "text-green-500" : "text-red-500"}`}>
-                        {r.upside >= 0 ? "+" : ""}{r.upside.toFixed(1)}%
-                      </span>
-                    </div>
-                  </Card>
-                );
-              })}
+            {/* Section 4: Precio objetivo by method */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-card-foreground">Precio objetivo</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-card z-10 min-w-[140px]">Método</TableHead>
+                      {targetPrices.map(tp => (
+                        <TableHead key={tp.year} className="text-right text-orange-400 min-w-[90px]">{tp.year}e</TableHead>
+                      ))}
+                      <TableHead className="text-right min-w-[90px]">CAGR 5 años</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { label: "PER ex Cash", key: "perExCash" },
+                      { label: "EV / FCF", key: "evFcf" },
+                      { label: "EV / EBITDA", key: "evEbitda" },
+                      { label: "EV / EBIT", key: "evEbit" },
+                    ].map(({ label, key }) => {
+                      // Calculate CAGR for each method
+                      const lastTp = targetPrices[targetPrices.length - 1];
+                      const lastVal = (lastTp as any)?.[key];
+                      const years = lastTp ? lastTp.year - new Date().getFullYear() : 0;
+                      const cagr = (lastVal && currentPrice > 0 && years > 0)
+                        ? Math.pow(lastVal / currentPrice, 1 / years) - 1
+                        : null;
+
+                      return (
+                        <TableRow key={key}>
+                          <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
+                          {targetPrices.map(tp => (
+                            <TableCell key={tp.year} className="text-right font-mono text-sm text-foreground">
+                              {fmtPrice((tp as any)[key])}
+                            </TableCell>
+                          ))}
+                          <TableCell className={`text-right font-mono text-sm font-semibold ${cagr && cagr >= 0 ? "text-green-500" : "text-red-500"}`}>
+                            {pct(cagr)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    <TableRow className="border-t-2 border-border">
+                      <TableCell className="sticky left-0 bg-card z-10 font-semibold text-foreground">Promedio</TableCell>
+                      {targetPrices.map(tp => (
+                        <TableCell key={tp.year} className="text-right font-mono text-sm font-semibold text-foreground">
+                          {fmtPrice(tp.average)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-right font-mono text-sm font-semibold">
+                        {(() => {
+                          const lastTp = targetPrices[targetPrices.length - 1];
+                          const years = lastTp ? lastTp.year - new Date().getFullYear() : 0;
+                          const cagr = (lastTp?.average && currentPrice > 0 && years > 0)
+                            ? Math.pow(lastTp.average / currentPrice, 1 / years) - 1
+                            : null;
+                          return <span className={cagr && cagr >= 0 ? "text-green-500" : "text-red-500"}>{pct(cagr)}</span>;
+                        })()}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            {/* Section 5: Margen de seguridad (EV/FCF) */}
+            <Card className="overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="text-sm font-semibold text-card-foreground">Margen de seguridad (EV/FCF)</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground min-w-[140px]">MoS</TableCell>
+                      {targetPrices.map(tp => (
+                        <TableCell key={tp.year} className={`text-right font-mono text-sm font-semibold min-w-[90px] ${
+                          (tp.marginSafety ?? 0) >= 0 ? "text-green-500" : "text-red-500"
+                        }`}>
+                          {tp.marginSafety != null ? `${(tp.marginSafety * 100).toFixed(1)}%` : "—"}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            {/* Section 6: Retorno anual objetivo */}
+            <Card className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                  <label className="text-xs text-muted-foreground">Retorno anual objetivo</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="number"
+                      value={targetReturnRate}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v)) handleTargetChange("targetReturnRate", "target_return_rate", v);
+                      }}
+                      className="h-8 w-24 text-sm font-mono border-orange-400/50 text-orange-400 bg-orange-400/5"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Precio de compra para {targetReturnRate}% anual</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">
+                    {priceForTargetReturn ? `$${priceForTargetReturn.toFixed(2)}` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Diferencia vs precio actual</p>
+                  <p className={`text-2xl font-bold mt-1 ${
+                    priceForTargetReturn && currentPrice > 0
+                      ? (priceForTargetReturn < currentPrice ? "text-red-500" : "text-green-500")
+                      : "text-foreground"
+                  }`}>
+                    {priceForTargetReturn && currentPrice > 0
+                      ? `${(((priceForTargetReturn - currentPrice) / currentPrice) * 100).toFixed(1)}%`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Target price chart */}
+              <Card className="p-5">
+                <h3 className="text-sm font-semibold text-card-foreground mb-4">Precio objetivo por método</h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          color: "hsl(var(--card-foreground))",
+                        }}
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, undefined]}
+                      />
+                      <Legend />
+                      <Bar dataKey="PER ex Cash" fill="hsl(var(--chart-1))" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="EV/FCF" fill="hsl(var(--chart-2))" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="EV/EBITDA" fill="hsl(var(--chart-3))" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="EV/EBIT" fill="hsl(var(--chart-4))" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* Margin of safety chart */}
+              <Card className="p-5">
+                <h3 className="text-sm font-semibold text-card-foreground mb-4">Margen de seguridad (EV/FCF)</h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={mosData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          color: "hsl(var(--card-foreground))",
+                        }}
+                        formatter={(value: number) => [`${value.toFixed(1)}%`, "MoS"]}
+                      />
+                      <Bar
+                        dataKey="Margen de Seguridad"
+                        fill="hsl(var(--chart-2))"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
             </div>
           </>
         )}
