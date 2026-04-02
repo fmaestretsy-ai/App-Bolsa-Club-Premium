@@ -166,6 +166,9 @@ const VALUATION_ROW_MAP: [RegExp, keyof ProjectionData][] = [
   [/^FCF$/i, "fcf"],
 ];
 
+// Row pattern to extract projected diluted shares from IS sheet
+const DILUTED_SHARES_PATTERN = /^Fully diluted shares|^Weighted Average Diluted|^Diluted shares/i;
+
 function extractSummaryData(wb: XLSX.WorkBook): {
   sector: string | null;
   targetPrice5y: number | null;
