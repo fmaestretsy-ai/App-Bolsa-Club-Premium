@@ -87,6 +87,7 @@ export default function Valuation() {
       ebit: Number((p as any).ebit) || null,
       netIncome: Number(p.net_income) || null,
       fcf: Number(p.fcf) || null,
+      dilutedShares: Number(p.diluted_shares) || null,
     }));
 
   const allYears = [...historicalYears, ...projectionYears];
@@ -108,35 +109,32 @@ export default function Valuation() {
     });
   }, [allYears]);
 
-  // Calculate target prices by method
+  // Calculate target prices by method (matching Excel formulas exactly)
   const targetPrices = useMemo(() => {
     if (projectionYears.length === 0) return [];
 
-    // Get diluted shares from last historical period
-    const lastHistorical = periods[periods.length - 1];
-    const shares = Number(lastHistorical?.diluted_shares) || 1;
-
     return projectionYears.map(py => {
       const nd = py.netDebt || 0;
+      const shares = py.dilutedShares || 1;
 
-      // PER ex Cash: (Net Income × PER + |Net Debt|) / shares
+      // PER ex Cash: (Net Income × PER) / shares — no net debt adjustment
       const perPrice = py.netIncome
-        ? (py.netIncome * targetPer - nd) / shares
+        ? (py.netIncome * targetPer) / shares
         : null;
 
-      // EV/FCF: (FCF × multiple + Net Debt adjustment) / shares
+      // EV/FCF: (FCF × multiple - NetDebt) / shares
       const evFcfPrice = py.fcf
-        ? (py.fcf * targetEvFcf + nd) / shares
+        ? (py.fcf * targetEvFcf - nd) / shares
         : null;
 
-      // EV/EBITDA: (EBITDA × multiple + Net Debt) / shares
+      // EV/EBITDA: (EBITDA × multiple - NetDebt) / shares
       const evEbitdaPrice = py.ebitda
-        ? (py.ebitda * targetEvEbitda + nd) / shares
+        ? (py.ebitda * targetEvEbitda - nd) / shares
         : null;
 
-      // EV/EBIT
+      // EV/EBIT: (EBIT × multiple - NetDebt) / shares
       const evEbitPrice = py.ebit
-        ? (py.ebit * targetEvEbit + nd) / shares
+        ? (py.ebit * targetEvEbit - nd) / shares
         : null;
 
       const prices = [perPrice, evFcfPrice, evEbitdaPrice, evEbitPrice].filter(v => v !== null) as number[];
@@ -162,7 +160,7 @@ export default function Valuation() {
         marginSafety,
       };
     });
-  }, [projectionYears, periods, targetPer, targetEvFcf, targetEvEbitda, targetEvEbit, currentPrice]);
+  }, [projectionYears, targetPer, targetEvFcf, targetEvEbitda, targetEvEbit, currentPrice]);
 
   // Price for target return
   const priceForTargetReturn = useMemo(() => {
@@ -265,11 +263,13 @@ export default function Valuation() {
                   </TableHeader>
                   <TableBody>
                     {[
+                      { label: "Market cap", key: "marketCap" },
+                      { label: "Deuda Neta", key: "netDebt" },
+                      { label: "Enterprise Value (EV)", key: "ev" },
                       { label: "EBITDA", key: "ebitda" },
                       { label: "EBIT", key: "ebit" },
                       { label: "Net Income", key: "netIncome" },
                       { label: "FCF", key: "fcf" },
-                      { label: "Deuda Neta", key: "netDebt" },
                     ].map(({ label, key }) => (
                       <TableRow key={key}>
                         <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
