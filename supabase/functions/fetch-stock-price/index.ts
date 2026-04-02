@@ -10,6 +10,42 @@ interface StockData {
   sector: string | null;
 }
 
+function extractDs1Data(html: string): { week52High: number | null; week52Low: number | null; sector: string | null } {
+  // ds:1 contains company info including 52-week high/low and sector
+  // Format: ...price,low52w,high52w,low_day,high_day,...,"sector_name"]]]
+  const ds1Match = html.match(/key:\s*'ds:1'[^<]+data:(\[\[\[.+?\]\]\]),\s*sideChannel/);
+  if (!ds1Match) return { week52High: null, week52Low: null, sector: null };
+  
+  try {
+    const raw = ds1Match[1];
+    
+    // Extract sector: last quoted string before ]]]
+    let sector: string | null = null;
+    const sectorMatch = raw.match(/"([A-Z][^"]{2,50})"\]\]\]/);
+    if (sectorMatch) sector = sectorMatch[1];
+    
+    // Extract 52-week high and low from the numeric sequence
+    // Pattern in ds:1: ...,currentPrice,?,52wHigh,52wLow,yearHigh,yearLow,...
+    // Actually from the data: 297.39,290.69,298.08,289.45,349,140.53
+    // That's: lastPrice, ?, dayHigh, dayLow, 52wHigh, 52wLow
+    const numPattern = raw.match(/,([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),([\d.]+),(\d+),"USD"/);
+    if (numPattern) {
+      const vals = numPattern.slice(1, 7).map(Number);
+      // vals[4] = 52w high, vals[5] = 52w low (the bigger range values)
+      const allVals = vals.filter(v => !isNaN(v));
+      const maxVal = Math.max(...allVals);
+      const minVal = Math.min(...allVals.filter(v => v > 0));
+      if (maxVal > 0 && minVal > 0 && maxVal > minVal * 1.1) {
+        return { week52High: maxVal, week52Low: minVal, sector };
+      }
+    }
+    
+    return { week52High: null, week52Low: null, sector };
+  } catch {
+    return { week52High: null, week52Low: null, sector: null };
+  }
+}
+
 async function fetchFromGoogleFinance(ticker: string): Promise<StockData> {
   const exchanges = ['NASDAQ', 'NYSE', 'EPA', 'BIT', 'TSE', 'AMS', 'SWX', 'TPE'];
   const cleanTicker = ticker.includes(':') ? ticker : null;
@@ -35,44 +71,17 @@ async function fetchFromGoogleFinance(ticker: string): Promise<StockData> {
       const price = priceMatch ? parseFloat(priceMatch[1]) : null;
       if (!price) continue;
 
-      // Extract 52-week high and low using multiple patterns
-      let week52High: number | null = null;
-      let week52Low: number | null = null;
-
-      // Pattern 1: data attributes
-      const highMatch = html.match(/data-52-week-high="([^"]+)"/);
-      const lowMatch = html.match(/data-52-week-low="([^"]+)"/);
-      if (highMatch) week52High = parseFloat(highMatch[1]);
-      if (lowMatch) week52Low = parseFloat(lowMatch[1]);
-
-      // Pattern 2: Look for "52-week" section in the page content
-      if (!week52High || !week52Low) {
-        // Try to find 52 week range in format like "52-wk range ... $XXX.XX - $XXX.XX"
-        const rangeMatch = html.match(/52[- ]?w(?:ee)?k[^<]*?(\d[\d,.]+)\s*[-–]\s*(\d[\d,.]+)/i);
-        if (rangeMatch) {
-          const low = parseFloat(rangeMatch[1].replace(/,/g, ''));
-          const high = parseFloat(rangeMatch[2].replace(/,/g, ''));
-          if (!isNaN(low) && !isNaN(high)) {
-            week52Low = week52Low ?? low;
-            week52High = week52High ?? high;
-          }
-        }
-      }
-
-      // Extract sector/industry from the "About" section
-      let sector: string | null = null;
-      // Google Finance shows sector in a data attribute or in structured content
-      const sectorMatch = html.match(/data-sector="([^"]+)"/) 
-        || html.match(/"sector"\s*:\s*"([^"]+)"/)
-        || html.match(/Sector[^<]*<[^>]*>([^<]+)</);
-      if (sectorMatch) sector = sectorMatch[1].trim();
+      // Extract from ds:1 structured data (most reliable)
+      const ds1 = extractDs1Data(html);
       
-      // Also try industry
-      if (!sector) {
-        const industryMatch = html.match(/data-industry="([^"]+)"/)
-          || html.match(/"industry"\s*:\s*"([^"]+)"/)
-          || html.match(/Industry[^<]*<[^>]*>([^<]+)/);
-        if (industryMatch) sector = industryMatch[1].trim();
+      let { week52High, week52Low, sector } = ds1;
+
+      // Fallback: data attributes for 52-week range
+      if (!week52High || !week52Low) {
+        const highMatch = html.match(/data-52-week-high="([^"]+)"/);
+        const lowMatch = html.match(/data-52-week-low="([^"]+)"/);
+        if (highMatch) week52High = parseFloat(highMatch[1]);
+        if (lowMatch) week52Low = parseFloat(lowMatch[1]);
       }
 
       console.log(`${ticker}: price=${price}, 52wH=${week52High}, 52wL=${week52Low}, sector=${sector}`);
