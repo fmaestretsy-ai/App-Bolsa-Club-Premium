@@ -12,6 +12,8 @@ import { useNavigate } from "react-router-dom";
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <DashboardLayout>
