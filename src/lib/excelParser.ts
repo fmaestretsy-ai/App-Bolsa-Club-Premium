@@ -171,10 +171,10 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
 export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFinancialData {
   const wb = XLSX.read(buffer, { type: "array" });
   const { name: detectedName, ticker: detectedTicker } = detectCompanyFromFileName(fileName);
+  const summaryData = extractSummaryData(wb);
 
   const allPeriods = new Map<number, ParsedPeriod>();
 
-  // Process first 4 sheets (Income Statement, Cash Flow, Returns, Valuation)
   const sheetsToProcess = wb.SheetNames.slice(0, 4);
 
   for (const sheetName of sheetsToProcess) {
@@ -182,7 +182,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
     if (data.length < 3) continue;
 
-    // Find the row with years
     let yearInfo: ReturnType<typeof detectYearColumns> | null = null;
     let yearRowIdx = -1;
 
@@ -199,7 +198,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
 
     if (!yearInfo || yearInfo.years.length === 0) continue;
 
-    // Initialize periods
     for (let i = 0; i < yearInfo.years.length; i++) {
       const year = yearInfo.years[i];
       if (!allPeriods.has(year)) {
@@ -218,7 +216,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
       }
     }
 
-    // Parse data rows
     let lastMatchedMetric: string | null = null;
 
     for (let r = yearRowIdx + 1; r < data.length; r++) {
@@ -227,7 +224,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
       const label = String(row[0]).trim();
       if (!label) continue;
 
-      // Check for Y/Y Growth rows
       if (/Y\/Y Growth|% Change YoY/i.test(label) && lastMatchedMetric) {
         const growthField = GROWTH_CONTEXT[lastMatchedMetric];
         if (growthField) {
@@ -242,7 +238,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
         continue;
       }
 
-      // Match row label to a metric
       for (const [pattern, field] of ROW_PATTERNS) {
         if (pattern.test(label)) {
           lastMatchedMetric = field;
@@ -250,7 +245,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
             const val = parseNumericValue(row[yearInfo.indices[i]]);
             if (val !== null) {
               const period = allPeriods.get(yearInfo.years[i])!;
-              // Handle negative values for expenses stored as negative
               if (field === "capex" && val < 0) {
                 (period as any)[field] = Math.abs(val);
               } else {
@@ -264,7 +258,6 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     }
   }
 
-  // Filter only historical periods (not projections) for storage
   const periods = Array.from(allPeriods.values())
     .filter(p => !p.isProjection)
     .sort((a, b) => a.fiscalYear - b.fiscalYear);
@@ -272,7 +265,11 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
   return {
     companyName: detectedName,
     ticker: detectedTicker,
+    sector: summaryData.sector,
     periods,
+    targetPrice5y: summaryData.targetPrice5y,
+    priceFor15Return: summaryData.priceFor15Return,
+    estimatedAnnualReturn: summaryData.estimatedAnnualReturn,
   };
 }
 
