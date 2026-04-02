@@ -65,10 +65,10 @@ export default function SettingsPage() {
           <h3 className="font-semibold text-card-foreground">Account</h3>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground font-medium">user@example.com</p>
-              <p className="text-xs text-muted-foreground">Signed in via email</p>
+              <p className="text-sm text-foreground font-medium">{user?.email ?? "—"}</p>
+              <p className="text-xs text-muted-foreground">Signed in via {user?.app_metadata?.provider ?? "email"}</p>
             </div>
-            <Button variant="outline" size="sm">{t("auth.logout")}</Button>
+            <Button variant="outline" size="sm" onClick={async () => { await signOut(); navigate("/login"); }}>{t("auth.logout")}</Button>
           </div>
         </Card>
       </div>
