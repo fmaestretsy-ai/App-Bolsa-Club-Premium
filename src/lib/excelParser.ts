@@ -126,12 +126,13 @@ function detectCompanyFromFileName(fileName: string): { name: string | null; tic
   return { name: nameCandidate, ticker: tickerCandidate || null };
 }
 
-function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetPrice5y: number | null; priceFor15Return: number | null; estimatedAnnualReturn: number | null; currentPrice: number | null } {
+function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetPrice5y: number | null; priceFor15Return: number | null; estimatedAnnualReturn: number | null; currentPrice: number | null; projectionTargets: ProjectionTarget[] } {
   let sector: string | null = null;
   let targetPrice5y: number | null = null;
   let priceFor15Return: number | null = null;
   let estimatedAnnualReturn: number | null = null;
   let currentPrice: number | null = null;
+  const projectionTargets: ProjectionTarget[] = [];
 
   // Find valuation sheet (commonly named "4.Valoracion", "Valoracion", "Valuation")
   const valSheetName = wb.SheetNames.find(s => /valoraci[oó]n|valuation/i.test(s));
@@ -141,6 +142,8 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
 
     // Track whether we're in "Precio objetivo" section
     let inPrecioObjetivoSection = false;
+    let precioObjetivoYears: number[] = [];
+    let precioObjetivoColIndices: number[] = [];
 
     for (let r = 0; r < data.length; r++) {
       const row = data[r];
@@ -155,17 +158,50 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
       // Detect "Precio objetivo" section header
       if (/^Precio objetivo$/i.test(label)) {
         inPrecioObjetivoSection = true;
+        // The next row or same row might have year headers — scan this row and the next few for years
+        for (let scanR = r; scanR < Math.min(r + 3, data.length); scanR++) {
+          const scanRow = data[scanR];
+          if (!scanRow) continue;
+          const detected = detectYearColumns(scanRow);
+          if (detected.years.length >= 3) {
+            precioObjetivoYears = detected.years;
+            precioObjetivoColIndices = detected.indices;
+            break;
+          }
+        }
         continue;
       }
 
       // In the "Precio objetivo" section, find the "EV / FCF" row
-      // This row has: col 5 = 2030e target price, col 10 = CAGR 5 años
       if (inPrecioObjetivoSection && /^EV\s*\/\s*FCF/i.test(label)) {
-        const target = parseNumericValue(row[5]);
-        if (target && target > 1) targetPrice5y = target;
-        const cagr = parseNumericValue(row[10]);
-        if (cagr !== null) estimatedAnnualReturn = cagr;
-        inPrecioObjetivoSection = false; // found what we need
+        // Extract year-by-year target prices
+        if (precioObjetivoYears.length > 0 && precioObjetivoColIndices.length > 0) {
+          for (let i = 0; i < precioObjetivoYears.length; i++) {
+            const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
+            if (val && val > 1) {
+              projectionTargets.push({ year: precioObjetivoYears[i], targetPrice: val });
+            }
+          }
+        }
+
+        // Fallback: use col 5 for 5Y target if no year columns detected
+        if (projectionTargets.length === 0) {
+          const target = parseNumericValue(row[5]);
+          if (target && target > 1) targetPrice5y = target;
+        } else {
+          // Last projection year = 5Y target
+          targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
+        }
+
+        // CAGR from last numeric columns (typically col 10 or after the year data)
+        for (let c = row.length - 1; c >= 6; c--) {
+          const val = parseNumericValue(row[c]);
+          if (val !== null && Math.abs(val) < 1) {
+            estimatedAnnualReturn = val;
+            break;
+          }
+        }
+        inPrecioObjetivoSection = false;
       }
 
       // "Retorno anual objetivo" → col C (index 2) = price for 15% return
@@ -190,7 +226,7 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
     if (sector) break;
   }
 
-  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn, currentPrice };
+  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn, currentPrice, projectionTargets };
 }
 
 export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFinancialData {
