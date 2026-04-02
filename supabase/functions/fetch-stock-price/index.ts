@@ -39,6 +39,56 @@ function toTitleCase(value: string | null): string | null {
     .join(" ");
 }
 
+const SECTOR_MAP: Record<string, string> = {
+  "interactive media": "Grandes Tecnológicas",
+  "internet content & information": "Grandes Tecnológicas",
+  "internet retail": "Grandes Tecnológicas",
+  "consumer electronics": "Grandes Tecnológicas",
+  "software - infrastructure": "Grandes Tecnológicas",
+  "software—infrastructure": "Grandes Tecnológicas",
+  "software - application": "Software",
+  "software—application": "Software",
+  "information technology services": "Software",
+  "credit services": "Infraestructura Pagos",
+  "financial data & stock exchanges": "Infraestructura Pagos",
+  "specialty finance": "Infraestructura Pagos",
+  "semiconductors": "Semiconductores",
+  "semiconductor equipment & materials": "Semiconductores",
+  "insurance - diversified": "Financiera",
+  "insurance—diversified": "Financiera",
+  "asset management": "Financiera",
+  "banks - diversified": "Financiera",
+  "banks—diversified": "Financiera",
+  "capital markets": "Financiera",
+  "financial conglomerates": "Financiera",
+  "luxury goods": "Lujo",
+  "apparel - luxury": "Lujo",
+  "textile - apparel luxury goods": "Lujo",
+  "auto manufacturers": "Lujo",
+  "conglomerates": "Conglomerado",
+  "insurance - property & casualty": "Conglomerado",
+  "insurance—property & casualty": "Conglomerado",
+  "packaged foods": "Consumo Básico",
+  "discount stores": "Consumo Básico",
+  "household & personal products": "Consumo Básico",
+  "beverages - non-alcoholic": "Consumo Básico",
+  "beverages—non-alcoholic": "Consumo Básico",
+  "drug manufacturers": "Salud",
+  "medical devices": "Salud",
+  "healthcare plans": "Salud",
+  "oil & gas integrated": "Energía",
+  "oil & gas e&p": "Energía",
+  "aerospace & defense": "Industrial",
+  "industrial conglomerates": "Industrial",
+  "telecom services": "Comunicaciones",
+  "entertainment": "Entretenimiento",
+};
+
+function mapSector(rawSector: string | null): string | null {
+  if (!rawSector) return null;
+  return SECTOR_MAP[rawSector.toLowerCase().trim()] ?? toTitleCase(rawSector);
+}
+
 function extractInitDataBlock(html: string, key: string): unknown[] | null {
   const keyIndex = html.indexOf(`key: '${key}'`);
   if (keyIndex === -1) return null;
@@ -68,11 +118,13 @@ function extractDs1Data(html: string): GoogleFinanceSummary {
     return { currentPrice: null, week52High: null, week52Low: null, sector: null };
   }
 
+  const rawSector = typeof summary[summary.length - 1] === "string" ? summary[summary.length - 1] : null;
+
   return {
     currentPrice: toNumber(summary[8]),
     week52High: toNumber(summary[12]),
     week52Low: toNumber(summary[13]),
-    sector: toTitleCase(typeof summary[summary.length - 1] === "string" ? summary[summary.length - 1] : null),
+    sector: mapSector(rawSector),
   };
 }
 
