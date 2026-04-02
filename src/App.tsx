@@ -4,10 +4,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import "@/lib/i18n";
 
-import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Index from "./pages/Index";
 import Companies from "./pages/Companies";
 import CompanyDetail from "./pages/CompanyDetail";
 import ExcelUpload from "./pages/ExcelUpload";
@@ -24,33 +26,37 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const P = ({ children }: { children: React.ReactNode }) => <ProtectedRoute>{children}</ProtectedRoute>;
+
 const App = () => (
   <ThemeProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Index />} />
-            <Route path="/companies" element={<Companies />} />
-            <Route path="/companies/:id" element={<CompanyDetail />} />
-            <Route path="/upload" element={<ExcelUpload />} />
-            <Route path="/financials" element={<FinancialHistory />} />
-            <Route path="/valuation" element={<Valuation />} />
-            <Route path="/projection" element={<Projection />} />
-            <Route path="/portfolio" element={<Portfolio />} />
-            <Route path="/trades" element={<TradeHistory />} />
-            <Route path="/watchlist" element={<Watchlist />} />
-            <Route path="/assumptions" element={<Assumptions />} />
-            <Route path="/versions" element={<VersionHistory />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<P><Index /></P>} />
+              <Route path="/companies" element={<P><Companies /></P>} />
+              <Route path="/companies/:id" element={<P><CompanyDetail /></P>} />
+              <Route path="/upload" element={<P><ExcelUpload /></P>} />
+              <Route path="/financials" element={<P><FinancialHistory /></P>} />
+              <Route path="/valuation" element={<P><Valuation /></P>} />
+              <Route path="/projection" element={<P><Projection /></P>} />
+              <Route path="/portfolio" element={<P><Portfolio /></P>} />
+              <Route path="/trades" element={<P><TradeHistory /></P>} />
+              <Route path="/watchlist" element={<P><Watchlist /></P>} />
+              <Route path="/assumptions" element={<P><Assumptions /></P>} />
+              <Route path="/versions" element={<P><VersionHistory /></P>} />
+              <Route path="/settings" element={<P><SettingsPage /></P>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   </ThemeProvider>
 );
 
