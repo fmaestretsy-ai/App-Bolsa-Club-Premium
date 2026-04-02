@@ -32,11 +32,11 @@ export default function Valuation() {
   // Editable state for target multiples
   const [localTargets, setLocalTargets] = useState<Record<string, number>>({});
 
-  const targetPer = localTargets.targetPer ?? Number(assumptions?.target_pe) || 25;
-  const targetEvFcf = localTargets.targetEvFcf ?? Number(assumptions?.fcf_multiple) || 25;
-  const targetEvEbitda = localTargets.targetEvEbitda ?? Number((assumptions as any)?.ev_ebitda_multiple) || 17;
-  const targetEvEbit = localTargets.targetEvEbit ?? Number((assumptions as any)?.ev_ebit_multiple) || 19;
-  const targetReturnRate = localTargets.targetReturnRate ?? Number((assumptions as any)?.target_return_rate) || 15;
+  const targetPer = localTargets.targetPer ?? (Number(assumptions?.target_pe) || 25);
+  const targetEvFcf = localTargets.targetEvFcf ?? (Number(assumptions?.fcf_multiple) || 25);
+  const targetEvEbitda = localTargets.targetEvEbitda ?? (Number((assumptions as any)?.ev_ebitda_multiple) || 17);
+  const targetEvEbit = localTargets.targetEvEbit ?? (Number((assumptions as any)?.ev_ebit_multiple) || 19);
+  const targetReturnRate = localTargets.targetReturnRate ?? (Number((assumptions as any)?.target_return_rate) || 15);
 
   const currentPrice = Number(company?.current_price) || 0;
 
