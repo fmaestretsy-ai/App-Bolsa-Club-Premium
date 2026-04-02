@@ -112,14 +112,60 @@ function detectYearColumns(row: unknown[]): { indices: number[]; years: number[]
 }
 
 function detectCompanyFromFileName(fileName: string): { name: string | null; ticker: string | null } {
-  // Try to extract ticker from filename like "Plantilla_Alphabet_GOOGL_..."
   const parts = fileName.replace(/\.[^.]+$/, "").split(/[_\-\s]+/);
-  // Common tickers are 1-5 uppercase letters
   const tickerCandidate = parts.find(p => /^[A-Z]{1,5}$/.test(p));
-  // Company name is often the word before the ticker
   const tickerIdx = parts.indexOf(tickerCandidate || "");
   const nameCandidate = tickerIdx > 0 ? parts.slice(1, tickerIdx).join(" ") : null;
   return { name: nameCandidate, ticker: tickerCandidate || null };
+}
+
+// Patterns to detect sector/industry from a cell
+const SECTOR_PATTERNS = [
+  /^Sector$|^Industry$|^Industria$/i,
+];
+
+// Patterns to detect summary/tracking data
+const SUMMARY_PATTERNS: [RegExp, string][] = [
+  [/Precio objetivo.*5\s*a[ñn]os|Target Price.*5.*Year/i, "targetPrice5y"],
+  [/Precio.*15%|Price.*15%/i, "priceFor15Return"],
+  [/Retorno anual estimado|Estimated Annual Return|% Retorno/i, "estimatedAnnualReturn"],
+];
+
+function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetPrice5y: number | null; priceFor15Return: number | null; estimatedAnnualReturn: number | null } {
+  let sector: string | null = null;
+  let targetPrice5y: number | null = null;
+  let priceFor15Return: number | null = null;
+  let estimatedAnnualReturn: number | null = null;
+
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+    for (let r = 0; r < Math.min(data.length, 50); r++) {
+      const row = data[r];
+      if (!row || !row[0]) continue;
+      const label = String(row[0]).trim();
+
+      // Detect sector
+      if (!sector && SECTOR_PATTERNS.some(p => p.test(label)) && row[1]) {
+        sector = String(row[1]).trim();
+      }
+
+      // Detect summary values
+      for (const [pattern, field] of SUMMARY_PATTERNS) {
+        if (pattern.test(label)) {
+          const val = parseNumericValue(row[1] ?? row[2]);
+          if (val !== null) {
+            if (field === "targetPrice5y") targetPrice5y = val;
+            else if (field === "priceFor15Return") priceFor15Return = val;
+            else if (field === "estimatedAnnualReturn") estimatedAnnualReturn = val;
+          }
+        }
+      }
+    }
+  }
+
+  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn };
 }
 
 export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFinancialData {
