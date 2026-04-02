@@ -263,11 +263,13 @@ export default function Valuation() {
                   </TableHeader>
                   <TableBody>
                     {[
+                      { label: "Market cap", key: "marketCap" },
+                      { label: "Deuda Neta", key: "netDebt" },
+                      { label: "Enterprise Value (EV)", key: "ev" },
                       { label: "EBITDA", key: "ebitda" },
                       { label: "EBIT", key: "ebit" },
                       { label: "Net Income", key: "netIncome" },
                       { label: "FCF", key: "fcf" },
-                      { label: "Deuda Neta", key: "netDebt" },
                     ].map(({ label, key }) => (
                       <TableRow key={key}>
                         <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
