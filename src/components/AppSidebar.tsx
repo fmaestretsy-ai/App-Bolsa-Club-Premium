@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Building2, Upload, TrendingUp, LineChart,
-  Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, BarChart3
+  Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, BarChart3, Table2
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
