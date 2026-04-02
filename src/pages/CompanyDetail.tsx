@@ -24,6 +24,9 @@ export default function CompanyDetail() {
   const { data: company, isLoading: loadingCompany } = useCompany(id);
   const { data: periods = [], isLoading: loadingPeriods } = useFinancialPeriods(id);
   const { data: assumptions } = useCompanyAssumptions(id);
+  const queryClient = useQueryClient();
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState("");
 
   const fmt = (n: number | null) => {
     if (n == null) return "—";
