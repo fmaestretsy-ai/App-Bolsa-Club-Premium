@@ -30,6 +30,7 @@ export function AppSidebar() {
 
   const analysisItems = [
     { title: t("nav.financials"), url: "/financials", icon: TrendingUp },
+    { title: "Modelo Financiero", url: "/model", icon: Table2 },
     { title: t("nav.valuation"), url: "/valuation", icon: Calculator },
     { title: t("nav.projection"), url: "/projection", icon: LineChart },
     { title: t("nav.assumptions"), url: "/assumptions", icon: Settings },

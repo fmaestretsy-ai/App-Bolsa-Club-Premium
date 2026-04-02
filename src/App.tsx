@@ -47,6 +47,7 @@ const App = () => (
               <Route path="/financials" element={<P><FinancialHistory /></P>} />
               <Route path="/valuation" element={<P><Valuation /></P>} />
               <Route path="/projection" element={<P><Projection /></P>} />
+              <Route path="/model" element={<P><FinancialModel /></P>} />
               <Route path="/portfolio" element={<P><Portfolio /></P>} />
               <Route path="/trades" element={<P><TradeHistory /></P>} />
               <Route path="/watchlist" element={<P><Watchlist /></P>} />
