@@ -11,7 +11,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   calculateModel, extractModelInputs, periodsToHistorical,
-  type ModelInputs,
+  type ModelInputs, type ModelResult,
 } from "@/lib/financialModelEngine";
 import { EmptyState } from "@/components/EmptyState";
 import { Calculator } from "lucide-react";
