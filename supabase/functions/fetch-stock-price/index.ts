@@ -7,6 +7,7 @@ interface StockData {
   price: number | null;
   week52High: number | null;
   week52Low: number | null;
+  sector: string | null;
 }
 
 async function fetchFromGoogleFinance(ticker: string): Promise<StockData> {
