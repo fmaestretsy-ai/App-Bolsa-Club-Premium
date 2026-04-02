@@ -1,5 +1,10 @@
 import * as XLSX from "xlsx";
 
+export interface ProjectionTarget {
+  year: number;
+  targetPrice: number;
+}
+
 export interface ParsedFinancialData {
   companyName: string | null;
   ticker: string | null;
@@ -9,6 +14,7 @@ export interface ParsedFinancialData {
   priceFor15Return: number | null;
   estimatedAnnualReturn: number | null;
   currentPrice: number | null;
+  projectionTargets: ProjectionTarget[];
 }
 
 export interface ParsedPeriod {
