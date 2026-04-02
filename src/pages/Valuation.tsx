@@ -383,7 +383,6 @@ export default function Valuation() {
                       { label: "EV / EBIT", key: "evEbit" },
                     ].map(({ label, key }) => {
                       // Calculate CAGR for each method
-                      const firstTp = targetPrices[0];
                       const lastTp = targetPrices[targetPrices.length - 1];
                       const lastVal = (lastTp as any)?.[key];
                       const years = lastTp ? lastTp.year - new Date().getFullYear() : 0;
