@@ -158,7 +158,7 @@ export default function Tracking() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  companies.map((c: any) => {
+                  [...companies].sort((a: any, b: any) => (b.estimated_annual_return ?? -999) - (a.estimated_annual_return ?? -999)).map((c: any) => {
                     const pct52 = pctOf52w(c.current_price, c.week_52_high, c.week_52_low);
                     const annualReturn = c.estimated_annual_return;
                     return (
