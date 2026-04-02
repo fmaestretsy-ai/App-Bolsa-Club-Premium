@@ -186,7 +186,7 @@ export default function Valuation() {
 
   const pct = (n: number | null | undefined) => {
     if (n == null) return "—";
-    return `${(n * 100).toFixed(1)}%`;
+    return `${Math.round(n * 100)}%`;
   };
 
   const fmtMultiple = (n: number | null | undefined) => {
@@ -479,11 +479,11 @@ export default function Valuation() {
                   <p className="text-xs text-muted-foreground">Diferencia vs precio actual</p>
                   <p className={`text-2xl font-bold mt-1 ${
                     priceForTargetReturn && currentPrice > 0
-                      ? (priceForTargetReturn < currentPrice ? "text-red-500" : "text-green-500")
+                      ? (priceForTargetReturn < currentPrice ? "text-destructive" : "text-success")
                       : "text-foreground"
                   }`}>
                     {priceForTargetReturn && currentPrice > 0
-                      ? `${(((priceForTargetReturn - currentPrice) / currentPrice) * 100).toFixed(1)}%`
+                      ? `${Math.round(((priceForTargetReturn - currentPrice) / currentPrice) * 100)}%`
                       : "—"}
                   </p>
                 </div>
