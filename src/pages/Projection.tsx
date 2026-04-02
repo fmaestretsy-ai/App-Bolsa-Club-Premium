@@ -28,7 +28,9 @@ export default function Projection() {
       .map((p) => {
         const targetPrice = Number(p.target_price);
         const year = p.projection_year;
-        const yearsOut = year - (periods.length > 0 ? Number(periods[periods.length - 1]?.fiscal_year ?? year) : year);
+        // CAGR from current year (base year = last completed fiscal year, i.e. previous year)
+        const baseYear = new Date().getFullYear() - 1;
+        const yearsOut = year - baseYear;
         const expectedReturn = currentPrice > 0
           ? ((targetPrice - currentPrice) / currentPrice) * 100
           : 0;
