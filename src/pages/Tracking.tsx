@@ -48,12 +48,21 @@ export default function Tracking() {
   const { data: companies = [], isLoading } = useQuery<TrackingCompany[]>({
     queryKey: ["tracking-companies"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .order("name");
+      const [{ data, error }, { data: uploads, error: uploadsError }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("*")
+          .order("name"),
+        supabase
+          .from("excel_uploads")
+          .select("company_id")
+          .not("company_id", "is", null),
+      ]);
       if (error) throw error;
-      return data;
+      if (uploadsError) throw uploadsError;
+
+      const activeCompanyIds = new Set((uploads ?? []).map((upload) => upload.company_id).filter(Boolean));
+      return (data ?? []).filter((company) => activeCompanyIds.has(company.id));
     },
     enabled: !!user,
   });
