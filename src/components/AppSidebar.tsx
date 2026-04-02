@@ -78,7 +78,7 @@ export function AppSidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
           <TrendingUp className="h-4 w-4 text-sidebar-primary-foreground" />
         </div>
-        {!collapsed && <span className="font-bold text-sidebar-foreground text-lg tracking-tight">ValuX</span>}
+        {!collapsed && <span className="font-bold text-sidebar-foreground text-lg tracking-tight">Club Premium</span>}
       </div>
       <SidebarContent className="pt-2">
         {renderGroup("General", mainItems)}
