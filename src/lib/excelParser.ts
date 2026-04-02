@@ -3,7 +3,11 @@ import * as XLSX from "xlsx";
 export interface ParsedFinancialData {
   companyName: string | null;
   ticker: string | null;
+  sector: string | null;
   periods: ParsedPeriod[];
+  targetPrice5y: number | null;
+  priceFor15Return: number | null;
+  estimatedAnnualReturn: number | null;
 }
 
 export interface ParsedPeriod {
