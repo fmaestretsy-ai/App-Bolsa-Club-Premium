@@ -258,8 +258,30 @@ export default function ExcelUpload() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
       queryClient.invalidateQueries({ queryKey: ["projection-years"] });
       queryClient.invalidateQueries({ queryKey: ["assumptions"] });
+
+      // Auto-fetch price from API after upload
+      if (companyId && parsed.ticker) {
+        try {
+          const { data: priceData } = await supabase.functions.invoke("fetch-stock-price", {
+            body: { ticker: parsed.ticker },
+          });
+          if (priceData?.success && priceData.data?.price) {
+            await supabase.from("companies").update({
+              current_price: priceData.data.price,
+              week_52_high: priceData.data.week52High,
+              week_52_low: priceData.data.week52Low,
+              sector: priceData.data.sector || undefined,
+              last_price_update: new Date().toISOString(),
+            }).eq("id", companyId);
+            queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
+          }
+        } catch (e) {
+          console.warn("Auto price fetch failed:", e);
+        }
+      }
       toast.success(
         `${t("upload.success")} — ${parsed.periods.length} períodos extraídos${parsed.ticker ? ` para ${parsed.ticker}` : ""}`
       );
