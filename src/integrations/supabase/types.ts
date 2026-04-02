@@ -93,12 +93,15 @@ export type Database = {
           created_at: string
           custom_params: Json | null
           discount_rate: number | null
+          ev_ebit_multiple: number | null
+          ev_ebitda_multiple: number | null
           fcf_multiple: number | null
           id: string
           net_margin_target: number | null
           optimistic_premium: number | null
           revenue_growth_rate: number | null
           target_pe: number | null
+          target_return_rate: number | null
           terminal_growth_rate: number | null
           updated_at: string
           user_id: string
@@ -109,12 +112,15 @@ export type Database = {
           created_at?: string
           custom_params?: Json | null
           discount_rate?: number | null
+          ev_ebit_multiple?: number | null
+          ev_ebitda_multiple?: number | null
           fcf_multiple?: number | null
           id?: string
           net_margin_target?: number | null
           optimistic_premium?: number | null
           revenue_growth_rate?: number | null
           target_pe?: number | null
+          target_return_rate?: number | null
           terminal_growth_rate?: number | null
           updated_at?: string
           user_id: string
@@ -125,12 +131,15 @@ export type Database = {
           created_at?: string
           custom_params?: Json | null
           discount_rate?: number | null
+          ev_ebit_multiple?: number | null
+          ev_ebitda_multiple?: number | null
           fcf_multiple?: number | null
           id?: string
           net_margin_target?: number | null
           optimistic_premium?: number | null
           revenue_growth_rate?: number | null
           target_pe?: number | null
+          target_return_rate?: number | null
           terminal_growth_rate?: number | null
           updated_at?: string
           user_id?: string
@@ -534,10 +543,16 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          diluted_shares: number | null
+          ebit: number | null
+          ebitda: number | null
+          ev: number | null
           expected_return: number | null
           fcf: number | null
           id: string
           intrinsic_value: number | null
+          market_cap: number | null
+          net_debt: number | null
           net_income: number | null
           projection_year: number
           revenue: number | null
@@ -548,10 +563,16 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          diluted_shares?: number | null
+          ebit?: number | null
+          ebitda?: number | null
+          ev?: number | null
           expected_return?: number | null
           fcf?: number | null
           id?: string
           intrinsic_value?: number | null
+          market_cap?: number | null
+          net_debt?: number | null
           net_income?: number | null
           projection_year: number
           revenue?: number | null
@@ -562,10 +583,16 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          diluted_shares?: number | null
+          ebit?: number | null
+          ebitda?: number | null
+          ev?: number | null
           expected_return?: number | null
           fcf?: number | null
           id?: string
           intrinsic_value?: number | null
+          market_cap?: number | null
+          net_debt?: number | null
           net_income?: number | null
           projection_year?: number
           revenue?: number | null
