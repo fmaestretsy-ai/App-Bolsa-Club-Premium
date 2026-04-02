@@ -6,10 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <DashboardLayout>
@@ -61,10 +65,10 @@ export default function SettingsPage() {
           <h3 className="font-semibold text-card-foreground">Account</h3>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground font-medium">user@example.com</p>
-              <p className="text-xs text-muted-foreground">Signed in via email</p>
+              <p className="text-sm text-foreground font-medium">{user?.email ?? "—"}</p>
+              <p className="text-xs text-muted-foreground">Signed in via {user?.app_metadata?.provider ?? "email"}</p>
             </div>
-            <Button variant="outline" size="sm">{t("auth.logout")}</Button>
+            <Button variant="outline" size="sm" onClick={async () => { await signOut(); navigate("/login"); }}>{t("auth.logout")}</Button>
           </div>
         </Card>
       </div>

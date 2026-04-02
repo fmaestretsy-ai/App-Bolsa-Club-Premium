@@ -3,9 +3,10 @@ import {
   Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, Globe
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
@@ -16,6 +17,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
 
   const mainItems = [
@@ -90,6 +93,9 @@ export function AppSidebar() {
           </button>
           <button onClick={toggleLang} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors text-xs font-semibold">
             {i18n.language === "es" ? "EN" : "ES"}
+          </button>
+          <button onClick={async () => { await signOut(); navigate("/login"); }} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
       </SidebarFooter>
