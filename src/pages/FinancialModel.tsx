@@ -147,7 +147,7 @@ function Row({
 
 /* ─── Main component ─── */
 export default function FinancialModel() {
-  const { t } = useTranslation();
+  useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: companies = [] } = useCompanies();
