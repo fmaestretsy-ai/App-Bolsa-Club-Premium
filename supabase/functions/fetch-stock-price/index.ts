@@ -59,22 +59,30 @@ async function fetchFromGoogleFinance(ticker: string): Promise<StockData> {
         }
       }
 
-      // Pattern 3: Look in structured data
-      if (!week52High || !week52Low) {
-        const structuredMatch = html.match(/"fiftyTwoWeekHigh"[^}]*?"raw":\s*([\d.]+)/);
-        const structuredLowMatch = html.match(/"fiftyTwoWeekLow"[^}]*?"raw":\s*([\d.]+)/);
-        if (structuredMatch) week52High = week52High ?? parseFloat(structuredMatch[1]);
-        if (structuredLowMatch) week52Low = week52Low ?? parseFloat(structuredLowMatch[1]);
+      // Extract sector/industry from the "About" section
+      let sector: string | null = null;
+      // Google Finance shows sector in a data attribute or in structured content
+      const sectorMatch = html.match(/data-sector="([^"]+)"/) 
+        || html.match(/"sector"\s*:\s*"([^"]+)"/)
+        || html.match(/Sector[^<]*<[^>]*>([^<]+)</);
+      if (sectorMatch) sector = sectorMatch[1].trim();
+      
+      // Also try industry
+      if (!sector) {
+        const industryMatch = html.match(/data-industry="([^"]+)"/)
+          || html.match(/"industry"\s*:\s*"([^"]+)"/)
+          || html.match(/Industry[^<]*<[^>]*>([^<]+)/);
+        if (industryMatch) sector = industryMatch[1].trim();
       }
 
-      console.log(`${ticker}: price=${price}, 52wH=${week52High}, 52wL=${week52Low}`);
-      return { price, week52High, week52Low };
+      console.log(`${ticker}: price=${price}, 52wH=${week52High}, 52wL=${week52Low}, sector=${sector}`);
+      return { price, week52High, week52Low, sector };
     } catch (e) {
       console.error(`Error fetching ${url}:`, e);
       continue;
     }
   }
-  return { price: null, week52High: null, week52Low: null };
+  return { price: null, week52High: null, week52Low: null, sector: null };
 }
 
 Deno.serve(async (req) => {
