@@ -116,9 +116,6 @@ export default function CompanyDetail() {
   const recColors = { buy: "bg-green-600", hold: "bg-yellow-500", sell: "bg-red-500" };
   const recLabels = { buy: t("valuation.buy"), hold: t("valuation.hold"), sell: t("valuation.sell") };
 
-  const queryClient = useQueryClient();
-  const [editingPrice, setEditingPrice] = useState(false);
-  const [priceInput, setPriceInput] = useState(String(company.current_price || ""));
 
   const savePrice = async () => {
     const price = parseFloat(priceInput);
