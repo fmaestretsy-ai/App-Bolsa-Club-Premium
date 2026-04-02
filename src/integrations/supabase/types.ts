@@ -20,51 +20,69 @@ export type Database = {
           created_at: string
           currency: string
           current_price: number | null
+          estimated_annual_return: number | null
           exchange: string | null
           id: string
           last_price_update: string | null
           market_cap: number | null
           name: string
+          next_earnings_date: string | null
           notes: string | null
+          price_for_15_return: number | null
           sector: string | null
           shares_outstanding: number | null
+          target_price_5y: number | null
           ticker: string
           updated_at: string
           user_id: string
+          week_52_high: number | null
+          week_52_low: number | null
         }
         Insert: {
           country?: string
           created_at?: string
           currency?: string
           current_price?: number | null
+          estimated_annual_return?: number | null
           exchange?: string | null
           id?: string
           last_price_update?: string | null
           market_cap?: number | null
           name: string
+          next_earnings_date?: string | null
           notes?: string | null
+          price_for_15_return?: number | null
           sector?: string | null
           shares_outstanding?: number | null
+          target_price_5y?: number | null
           ticker: string
           updated_at?: string
           user_id: string
+          week_52_high?: number | null
+          week_52_low?: number | null
         }
         Update: {
           country?: string
           created_at?: string
           currency?: string
           current_price?: number | null
+          estimated_annual_return?: number | null
           exchange?: string | null
           id?: string
           last_price_update?: string | null
           market_cap?: number | null
           name?: string
+          next_earnings_date?: string | null
           notes?: string | null
+          price_for_15_return?: number | null
           sector?: string | null
           shares_outstanding?: number | null
+          target_price_5y?: number | null
           ticker?: string
           updated_at?: string
           user_id?: string
+          week_52_high?: number | null
+          week_52_low?: number | null
         }
         Relationships: []
       }

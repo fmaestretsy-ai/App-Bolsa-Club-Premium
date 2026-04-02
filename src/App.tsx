@@ -23,6 +23,7 @@ import Assumptions from "./pages/Assumptions";
 import VersionHistory from "./pages/VersionHistory";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Tracking from "./pages/Tracking";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/assumptions" element={<P><Assumptions /></P>} />
               <Route path="/versions" element={<P><VersionHistory /></P>} />
               <Route path="/settings" element={<P><SettingsPage /></P>} />
+              <Route path="/tracking" element={<P><Tracking /></P>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
