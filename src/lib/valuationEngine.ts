@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 interface ValuationInput {
   eps: number;
   fcfPerShare: number;
