@@ -140,9 +140,9 @@ export default function Valuation() {
       const prices = [perPrice, evFcfPrice, evEbitdaPrice, evEbitPrice].filter(v => v !== null) as number[];
       const average = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : null;
 
-      const yearDiff = py.year - new Date().getFullYear();
-      const cagrEvFcf = (evFcfPrice && currentPrice > 0 && yearDiff > 0)
-        ? Math.pow(evFcfPrice / currentPrice, 1 / yearDiff) - 1
+      const cagrYears = py.year - (new Date().getFullYear() - 1);
+      const cagrEvFcf = (evFcfPrice && currentPrice > 0 && cagrYears > 0)
+        ? Math.pow(evFcfPrice / currentPrice, 1 / cagrYears) - 1
         : null;
 
       const marginSafety = (evFcfPrice && currentPrice > 0)
@@ -386,9 +386,9 @@ export default function Valuation() {
                       // Calculate CAGR for each method
                       const lastTp = targetPrices[targetPrices.length - 1];
                       const lastVal = (lastTp as any)?.[key];
-                      const years = lastTp ? lastTp.year - new Date().getFullYear() : 0;
-                      const cagr = (lastVal && currentPrice > 0 && years > 0)
-                        ? Math.pow(lastVal / currentPrice, 1 / years) - 1
+                      const cagrYears = lastTp ? lastTp.year - (new Date().getFullYear() - 1) : 0;
+                      const cagr = (lastVal && currentPrice > 0 && cagrYears > 0)
+                        ? Math.pow(lastVal / currentPrice, 1 / cagrYears) - 1
                         : null;
 
                       return (
@@ -396,10 +396,10 @@ export default function Valuation() {
                           <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
                           {targetPrices.map(tp => (
                             <TableCell key={tp.year} className="text-right font-mono text-sm text-foreground">
-                              {fmtPrice((tp as any)[key])}
+                              {(tp as any)[key] != null ? `$${Math.round((tp as any)[key])}` : "—"}
                             </TableCell>
                           ))}
-                          <TableCell className={`text-right font-mono text-sm font-semibold ${cagr && cagr >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          <TableCell className={`text-right font-mono text-sm font-semibold ${cagr && cagr >= 0 ? "text-success" : "text-destructive"}`}>
                             {pct(cagr)}
                           </TableCell>
                         </TableRow>
@@ -409,17 +409,17 @@ export default function Valuation() {
                       <TableCell className="sticky left-0 bg-card z-10 font-semibold text-foreground">Promedio</TableCell>
                       {targetPrices.map(tp => (
                         <TableCell key={tp.year} className="text-right font-mono text-sm font-semibold text-foreground">
-                          {fmtPrice(tp.average)}
+                          {tp.average != null ? `$${Math.round(tp.average)}` : "—"}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-mono text-sm font-semibold">
                         {(() => {
                           const lastTp = targetPrices[targetPrices.length - 1];
-                          const years = lastTp ? lastTp.year - new Date().getFullYear() : 0;
+                          const cagrYears = lastTp ? lastTp.year - (new Date().getFullYear() - 1) : 0;
                           const cagr = (lastTp?.average && currentPrice > 0 && years > 0)
-                            ? Math.pow(lastTp.average / currentPrice, 1 / years) - 1
+                            ? Math.pow(lastTp.average / currentPrice, 1 / cagrYears) - 1
                             : null;
-                          return <span className={cagr && cagr >= 0 ? "text-green-500" : "text-red-500"}>{pct(cagr)}</span>;
+                          return <span className={cagr && cagr >= 0 ? "text-success" : "text-destructive"}>{pct(cagr)}</span>;
                         })()}
                       </TableCell>
                     </TableRow>
@@ -440,9 +440,9 @@ export default function Valuation() {
                       <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground min-w-[140px]">MoS</TableCell>
                       {targetPrices.map(tp => (
                         <TableCell key={tp.year} className={`text-right font-mono text-sm font-semibold min-w-[90px] ${
-                          (tp.marginSafety ?? 0) >= 0 ? "text-green-500" : "text-red-500"
+                          (tp.marginSafety ?? 0) >= 0 ? "text-success" : "text-destructive"
                         }`}>
-                          {tp.marginSafety != null ? `${(tp.marginSafety * 100).toFixed(1)}%` : "—"}
+                          {tp.marginSafety != null ? `${Math.round(tp.marginSafety * 100)}%` : "—"}
                         </TableCell>
                       ))}
                     </TableRow>
@@ -472,7 +472,7 @@ export default function Valuation() {
                 <div>
                   <p className="text-xs text-muted-foreground">Precio de compra para {targetReturnRate}% anual</p>
                   <p className="text-2xl font-bold text-foreground mt-1">
-                    {priceForTargetReturn ? `$${priceForTargetReturn.toFixed(2)}` : "—"}
+                    {priceForTargetReturn ? `$${Math.round(priceForTargetReturn)}` : "—"}
                   </p>
                 </div>
                 <div>
