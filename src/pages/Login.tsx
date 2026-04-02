@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
