@@ -113,30 +113,61 @@ export default function CompanyDetail() {
   const recColors = { buy: "bg-green-600", hold: "bg-yellow-500", sell: "bg-red-500" };
   const recLabels = { buy: t("valuation.buy"), hold: t("valuation.hold"), sell: t("valuation.sell") };
 
+  const queryClient = useQueryClient();
+  const [editingPrice, setEditingPrice] = useState(false);
+  const [priceInput, setPriceInput] = useState(String(company.current_price || ""));
+
+  const savePrice = async () => {
+    const price = parseFloat(priceInput);
+    if (isNaN(price) || price <= 0) { toast.error("Precio inválido"); return; }
+    const { error } = await supabase.from("companies").update({ current_price: price, last_price_update: new Date().toISOString() }).eq("id", company.id);
+    if (error) { toast.error(error.message); return; }
+    queryClient.invalidateQueries({ queryKey: ["company", id] });
+    queryClient.invalidateQueries({ queryKey: ["companies"] });
+    setEditingPrice(false);
+    toast.success("Precio actualizado");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/companies")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
-              <Badge variant="secondary">{company.ticker}</Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/companies")}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
+                <Badge variant="secondary">{company.ticker}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {company.sector || "—"} · {company.country} · {company.currency}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {company.sector || "—"} · {company.country} · {company.currency}
-            </p>
           </div>
+          <TradeDialog defaultCompanyId={company.id} trigger={<Button size="sm">Registrar operación</Button>} />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">{t("companies.currentPrice")}</p>
-            <p className="text-xl font-bold text-card-foreground mt-1">
-              {company.current_price ? `$${Number(company.current_price).toFixed(2)}` : "—"}
-            </p>
+            {editingPrice ? (
+              <div className="flex items-center gap-1 mt-1">
+                <Input value={priceInput} onChange={(e) => setPriceInput(e.target.value)} className="h-8 font-mono text-sm w-24" type="number" step="0.01" autoFocus />
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={savePrice}><Check className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingPrice(false)}><X className="h-3 w-3" /></Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-xl font-bold text-card-foreground">
+                  {company.current_price ? `$${Number(company.current_price).toFixed(2)}` : "—"}
+                </p>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPriceInput(String(company.current_price || "")); setEditingPrice(true); }}>
+                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                </Button>
+              </div>
+            )}
           </Card>
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">{t("valuation.intrinsicValue")}</p>
