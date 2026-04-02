@@ -3,14 +3,19 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Check, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCompany, useFinancialPeriods, useCompanyAssumptions } from "@/hooks/useCompanyData";
 import { calculateValuation, getRecommendation, calculateProjections } from "@/lib/valuationEngine";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { TradeDialog } from "@/components/TradeDialog";
 
 export default function CompanyDetail() {
   const { t } = useTranslation();
