@@ -17,7 +17,7 @@ export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
