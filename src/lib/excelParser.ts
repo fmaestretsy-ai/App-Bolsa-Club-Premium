@@ -62,6 +62,8 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^Short-Term Debt/i, "totalDebt"],
   [/^Cash and cash/i, "cash"],
   [/^Deuda Neta$|^Net Debt$/i, "netDebt"],
+  [/^Dividend[s]?\s*(per\s*share)?$|^DPS$/i, "dividendPerShare"],
+  [/^Book Value per Share|^BVPS$/i, "bvps"],
 ];
 
 // Growth row patterns (Y/Y Growth lines depend on context)
