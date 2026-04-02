@@ -52,14 +52,27 @@ Deno.serve(async (req) => {
     const sheets = sheetsToProcess.map((sheetName: string) => {
       const allRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null }) as unknown[][];
       const start = rowStart ?? 0;
-      const end = rowEnd ?? allRows.length;
-      const rows = allRows.slice(start, end).map((row, i) => ({ rowIdx: start + i, cells: row }));
+      const end = Math.min(rowEnd ?? allRows.length, allRows.length);
+      
+      // Compact format: only non-null cells as {col: value}
+      const rows = [];
+      for (let r = start; r < end; r++) {
+        const row = allRows[r];
+        if (!row) continue;
+        const compact: Record<string, unknown> = {};
+        let hasData = false;
+        for (let c = 0; c < row.length; c++) {
+          if (row[c] != null && row[c] !== "") {
+            compact[String(c)] = row[c];
+            hasData = true;
+          }
+        }
+        if (hasData) {
+          rows.push({ r, ...compact });
+        }
+      }
 
-      return {
-        sheetName,
-        totalRows: allRows.length,
-        rows,
-      };
+      return { sheetName, totalRows: allRows.length, rows };
     });
 
     return new Response(JSON.stringify({
