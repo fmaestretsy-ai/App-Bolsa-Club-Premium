@@ -194,7 +194,24 @@ export default function ExcelUpload() {
         if (periodsError) throw periodsError;
       }
 
-      queryClient.invalidateQueries({ queryKey: ["excel-uploads"] });
+      // Insert projection targets from valuation sheet
+      if (companyId && parsed.projectionTargets.length > 0) {
+        await supabase
+          .from("projection_years")
+          .delete()
+          .eq("company_id", companyId)
+          .eq("user_id", user.id);
+
+        const projectionsToInsert = parsed.projectionTargets.map((pt) => ({
+          user_id: user.id,
+          company_id: companyId!,
+          projection_year: pt.year,
+          target_price: pt.targetPrice,
+        }));
+
+        await supabase.from("projection_years").insert(projectionsToInsert);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast.success(
         `${t("upload.success")} — ${parsed.periods.length} períodos extraídos${parsed.ticker ? ` para ${parsed.ticker}` : ""}`
