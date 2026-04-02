@@ -61,12 +61,16 @@ export default function Tracking() {
       });
       if (error) throw error;
       if (data?.success && data.data?.price) {
-        await supabase.from("companies").update({
+        const updateFields: any = {
           current_price: data.data.price,
           week_52_high: data.data.week52High,
           week_52_low: data.data.week52Low,
           last_price_update: new Date().toISOString(),
-        } as any).eq("id", company.id);
+        };
+        if (data.data.sector && !company.sector) {
+          updateFields.sector = data.data.sector;
+        }
+        await supabase.from("companies").update(updateFields).eq("id", company.id);
         queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
         toast.success(`${company.ticker}: $${data.data.price}`);
       } else {

@@ -133,44 +133,43 @@ function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetP
     const sheet = wb.Sheets[valSheetName];
     const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
+    // Track whether we're in "Precio objetivo" section
+    let inPrecioObjetivoSection = false;
+
     for (let r = 0; r < data.length; r++) {
       const row = data[r];
       if (!row) continue;
       const label = String(row[0] ?? "").trim();
-      const labelC2 = String(row[2] ?? "").trim();
 
-      // "Precio por acción actual" → col B has current price
+      // "Precio por acción actual" → col B (index 1) has current price
       if (/precio por acci[oó]n actual|current.*price/i.test(label)) {
         currentPrice = parseNumericValue(row[1]);
       }
 
-      // "Promedio" row after "Precio objetivo" section → last year column is 5Y target
-      if (/^Promedio$/i.test(label) && r > 25) {
-        // Col F (index 5) = 2030e target price (5 years out)
+      // Detect "Precio objetivo" section header
+      if (/^Precio objetivo$/i.test(label)) {
+        inPrecioObjetivoSection = true;
+        continue;
+      }
+
+      // In the "Precio objetivo" section, find the "EV / FCF" row
+      // This row has: col 5 = 2030e target price, col 10 = CAGR 5 años
+      if (inPrecioObjetivoSection && /^EV\s*\/\s*FCF/i.test(label)) {
         const target = parseNumericValue(row[5]);
-        if (target && target > 10) targetPrice5y = target;
-        // Col K (index 10) = CAGR 5 años = estimated annual return
+        if (target && target > 1) targetPrice5y = target;
         const cagr = parseNumericValue(row[10]);
         if (cagr !== null) estimatedAnnualReturn = cagr;
+        inPrecioObjetivoSection = false; // found what we need
       }
 
-      // "Precio de compra para generar un 15% anual" (label in col C, row 50)
-      if (/15%.*anual|15%.*annual/i.test(labelC2)) {
-        // The price is in the next row, col C (index 2)
-        const nextRow = data[r + 1];
-        if (nextRow) {
-          priceFor15Return = parseNumericValue(nextRow[2]);
-        }
-      }
-
-      // Also check col A for "Retorno anual objetivo" which has the 15% price in col C
+      // "Retorno anual objetivo" → col C (index 2) = price for 15% return
       if (/retorno anual objetivo/i.test(label)) {
         priceFor15Return = parseNumericValue(row[2]);
       }
     }
   }
 
-  // Try to detect sector from Google Finance description or from any sheet
+  // Try to detect sector from any sheet
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
     const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });

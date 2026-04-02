@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { uploadId } = await req.json();
+    const { uploadId, sheetFilter, rowStart, rowEnd } = await req.json();
     if (!uploadId) {
       return new Response(JSON.stringify({ error: "uploadId is required" }), {
         status: 400,
@@ -45,23 +45,39 @@ Deno.serve(async (req) => {
     const buffer = await fileData.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array" });
 
-    const sheets = workbook.SheetNames.slice(0, 8).map((sheetName) => {
-      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null }) as unknown[][];
-      const preview = rows.slice(0, 25);
-      const matches = rows
-        .flatMap((row, rowIndex) => row.map((cell, colIndex) => ({ rowIndex, colIndex, value: String(cell ?? "") })))
-        .filter((cell) => /sector|industria|industry|precio objetivo|target price|15%|retorno|return|dividend|earnings|resultado/i.test(cell.value))
-        .slice(0, 50);
+    const sheetsToProcess = sheetFilter 
+      ? workbook.SheetNames.filter((s: string) => s.toLowerCase().includes(sheetFilter.toLowerCase()))
+      : workbook.SheetNames.slice(0, 8);
 
-      return {
-        sheetName,
-        preview,
-        matches,
-      };
+    const sheets = sheetsToProcess.map((sheetName: string) => {
+      const allRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null }) as unknown[][];
+      const start = rowStart ?? 0;
+      const end = Math.min(rowEnd ?? allRows.length, allRows.length);
+      
+      // Compact format: only non-null cells as {col: value}
+      const rows = [];
+      for (let r = start; r < end; r++) {
+        const row = allRows[r];
+        if (!row) continue;
+        const compact: Record<string, unknown> = {};
+        let hasData = false;
+        for (let c = 0; c < row.length; c++) {
+          if (row[c] != null && row[c] !== "") {
+            compact[String(c)] = row[c];
+            hasData = true;
+          }
+        }
+        if (hasData) {
+          rows.push({ r, ...compact });
+        }
+      }
+
+      return { sheetName, totalRows: allRows.length, rows };
     });
 
     return new Response(JSON.stringify({
       fileName: upload.file_name,
+      sheetNames: workbook.SheetNames,
       sheets,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
