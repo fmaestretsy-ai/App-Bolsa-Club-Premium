@@ -1,25 +1,116 @@
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard } from "@/components/StatCard";
-import { Building2, TrendingUp, Briefcase, Eye } from "lucide-react";
+import { Building2, TrendingUp, Briefcase, Eye, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
-const mockChartData = [
-  { month: "Jan", value: 45000 }, { month: "Feb", value: 52000 }, { month: "Mar", value: 48000 },
-  { month: "Apr", value: 61000 }, { month: "May", value: 55000 }, { month: "Jun", value: 67000 },
-  { month: "Jul", value: 72000 }, { month: "Aug", value: 69000 }, { month: "Sep", value: 78000 },
-];
-
-const mockOpportunities = [
-  { name: "Apple Inc.", ticker: "AAPL", upside: 24.5, price: "$182.50" },
-  { name: "Microsoft", ticker: "MSFT", upside: 18.2, price: "$378.90" },
-  { name: "Alphabet", ticker: "GOOGL", upside: 31.0, price: "$141.20" },
-  { name: "Amazon", ticker: "AMZN", upside: 15.8, price: "$178.30" },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useCompanies, useFinancialPeriods } from "@/hooks/useCompanyData";
+import { calculateValuation, getRecommendation } from "@/lib/valuationEngine";
+import { useMemo } from "react";
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { data: companies = [], isLoading } = useCompanies();
+
+  // Get all financial periods for all companies
+  const { data: allPeriods = [] } = useQuery({
+    queryKey: ["all-financial-periods"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("financial_periods")
+        .select("*")
+        .order("fiscal_year", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Get watchlist items count
+  const { data: watchlistItems = [] } = useQuery({
+    queryKey: ["watchlist-items-count"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("watchlist_items").select("id");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Get portfolio positions for total value
+  const { data: positions = [] } = useQuery({
+    queryKey: ["all-positions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("portfolio_positions")
+        .select("*, companies(current_price)");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Calculate opportunities (companies with valuation upside)
+  const opportunities = useMemo(() => {
+    return companies
+      .map((company) => {
+        const companyPeriods = allPeriods.filter((p) => p.company_id === company.id);
+        if (companyPeriods.length === 0 || !company.current_price) return null;
+
+        const last = companyPeriods[companyPeriods.length - 1];
+        const results = calculateValuation(
+          {
+            eps: Number(last.eps) || 0,
+            fcfPerShare: Number(last.fcf_per_share) || 0,
+            ebitda: Number(last.ebitda) || 0,
+            ebit: Number(last.ebit) || 0,
+            netDebt: Number(last.net_debt) || 0,
+            dilutedShares: Number(last.diluted_shares) || 0,
+            currentPrice: Number(company.current_price),
+          },
+          { targetPe: 25, fcfMultiple: 25, conservativeDiscount: 15, optimisticPremium: 15 }
+        );
+
+        const baseResults = results.filter((r) => r.scenarioType === "base");
+        if (baseResults.length === 0) return null;
+        const avgUpside = baseResults.reduce((s, r) => s + r.upside, 0) / baseResults.length;
+
+        return {
+          id: company.id,
+          ticker: company.ticker,
+          name: company.name,
+          price: Number(company.current_price),
+          upside: Math.round(avgUpside * 10) / 10,
+          recommendation: getRecommendation(avgUpside),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b!.upside - a!.upside) as Array<{
+        id: string; ticker: string; name: string; price: number; upside: number; recommendation: string;
+      }>;
+  }, [companies, allPeriods]);
+
+  const totalPortfolioValue = positions.reduce((sum, p: any) => {
+    const price = Number(p.companies?.current_price) || 0;
+    return sum + Number(p.shares) * price;
+  }, 0);
+
+  const avgUpside = opportunities.length > 0
+    ? (opportunities.reduce((s, o) => s + o.upside, 0) / opportunities.length).toFixed(1)
+    : "0";
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -27,52 +118,56 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-foreground">{t("dashboard.title")}</h1>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title={t("dashboard.totalCompanies")} value="12" change="+2 this month" changeType="gain" icon={<Building2 className="h-4 w-4" />} />
-          <StatCard title={t("dashboard.avgUpside")} value="+22.4%" change="+3.1% vs last month" changeType="gain" icon={<TrendingUp className="h-4 w-4" />} />
-          <StatCard title={t("dashboard.portfolioValue")} value="$128,450" change="+$12,340 (10.6%)" changeType="gain" icon={<Briefcase className="h-4 w-4" />} />
-          <StatCard title={t("dashboard.watchlistAlerts")} value="3" change="2 undervalued" changeType="neutral" icon={<Eye className="h-4 w-4" />} />
+          <StatCard
+            title={t("dashboard.totalCompanies")}
+            value={String(companies.length)}
+            icon={<Building2 className="h-4 w-4" />}
+          />
+          <StatCard
+            title={t("dashboard.avgUpside")}
+            value={`${Number(avgUpside) >= 0 ? "+" : ""}${avgUpside}%`}
+            changeType={Number(avgUpside) >= 0 ? "gain" : "loss"}
+            icon={<TrendingUp className="h-4 w-4" />}
+          />
+          <StatCard
+            title={t("dashboard.portfolioValue")}
+            value={`$${totalPortfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={<Briefcase className="h-4 w-4" />}
+          />
+          <StatCard
+            title={t("dashboard.watchlistAlerts")}
+            value={String(watchlistItems.length)}
+            icon={<Eye className="h-4 w-4" />}
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="col-span-1 lg:col-span-2 p-5">
-            <h3 className="text-sm font-semibold text-card-foreground mb-4">{t("dashboard.portfolioOverview")}</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mockChartData}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="month" className="text-xs" tick={{ fill: "hsl(220, 10%, 46%)" }} />
-                  <YAxis className="text-xs" tick={{ fill: "hsl(220, 10%, 46%)" }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(222, 25%, 11%)", border: "1px solid hsl(222, 20%, 18%)", borderRadius: "8px", color: "hsl(220, 15%, 90%)" }} />
-                  <Area type="monotone" dataKey="value" stroke="hsl(217, 91%, 60%)" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-card-foreground mb-4">{t("dashboard.topOpportunities")}</h3>
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold text-card-foreground mb-4">{t("dashboard.topOpportunities")}</h3>
+          {opportunities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sube un Excel para ver oportunidades de inversión</p>
+          ) : (
             <div className="space-y-3">
-              {mockOpportunities.map((opp) => (
-                <div key={opp.ticker} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+              {opportunities.slice(0, 6).map((opp) => (
+                <div
+                  key={opp.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                  onClick={() => navigate(`/companies/${opp.id}`)}
+                >
                   <div>
                     <p className="text-sm font-medium text-foreground">{opp.ticker}</p>
                     <p className="text-xs text-muted-foreground">{opp.name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gain">+{opp.upside}%</p>
-                    <p className="text-xs text-muted-foreground">{opp.price}</p>
+                    <p className={`text-sm font-semibold ${opp.upside >= 0 ? "text-green-500" : "text-red-500"}`}>
+                      {opp.upside >= 0 ? "+" : ""}{opp.upside}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">${opp.price.toFixed(2)}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </Card>
-        </div>
+          )}
+        </Card>
       </div>
     </DashboardLayout>
   );
