@@ -416,7 +416,7 @@ export default function Valuation() {
                         {(() => {
                           const lastTp = targetPrices[targetPrices.length - 1];
                           const cagrYears = lastTp ? lastTp.year - (new Date().getFullYear() - 1) : 0;
-                          const cagr = (lastTp?.average && currentPrice > 0 && years > 0)
+                          const cagr = (lastTp?.average && currentPrice > 0 && cagrYears > 0)
                             ? Math.pow(lastTp.average / currentPrice, 1 / cagrYears) - 1
                             : null;
                           return <span className={cagr && cagr >= 0 ? "text-success" : "text-destructive"}>{pct(cagr)}</span>;
