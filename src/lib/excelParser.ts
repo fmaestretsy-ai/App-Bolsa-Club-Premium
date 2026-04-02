@@ -290,6 +290,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     targetPrice5y: summaryData.targetPrice5y,
     priceFor15Return: summaryData.priceFor15Return,
     estimatedAnnualReturn: summaryData.estimatedAnnualReturn,
+    currentPrice: summaryData.currentPrice,
   };
 }
 
