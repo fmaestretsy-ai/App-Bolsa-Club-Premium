@@ -3,66 +3,97 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-const mockData = [
-  { year: 2020, revenue: 274515, ebitda: 81020, netIncome: 57411, fcf: 73365, marginNet: 20.9, roe: 73.7, roic: 30.1 },
-  { year: 2021, revenue: 365817, ebitda: 120233, netIncome: 94680, fcf: 92953, marginNet: 25.9, roe: 147.4, roic: 56.2 },
-  { year: 2022, revenue: 394328, ebitda: 130541, netIncome: 99803, fcf: 111443, marginNet: 25.3, roe: 175.5, roic: 61.2 },
-  { year: 2023, revenue: 383285, ebitda: 125820, netIncome: 96995, fcf: 99584, marginNet: 25.3, roe: 156.1, roic: 54.8 },
-];
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useCompanies, useFinancialPeriods } from "@/hooks/useCompanyData";
 
 export default function FinancialHistory() {
   const { t } = useTranslation();
+  const { data: companies = [], isLoading } = useCompanies();
+  const [selectedId, setSelectedId] = useState<string>("");
 
-  const fmt = (n: number) => `$${(n / 1000).toFixed(1)}B`;
+  const companyId = selectedId || companies[0]?.id;
+  const { data: periods = [] } = useFinancialPeriods(companyId);
+
+  const fmt = (n: number | null) => {
+    if (n == null) return "—";
+    const v = Number(n);
+    if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
+    if (Math.abs(v) >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
+    return `$${v.toFixed(2)}`;
+  };
+
+  const pct = (n: number | null) => (n != null ? `${(Number(n) * 100).toFixed(1)}%` : "—");
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">{t("nav.financials")}</h1>
-          <Select defaultValue="aapl">
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <Select value={companyId || ""} onValueChange={setSelectedId}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Selecciona empresa" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="aapl">AAPL - Apple</SelectItem>
-              <SelectItem value="msft">MSFT - Microsoft</SelectItem>
-              <SelectItem value="googl">GOOGL - Alphabet</SelectItem>
+              {companies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.ticker} - {c.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Year</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="text-right">EBITDA</TableHead>
-                  <TableHead className="text-right">Net Income</TableHead>
-                  <TableHead className="text-right">FCF</TableHead>
-                  <TableHead className="text-right">Net Margin</TableHead>
-                  <TableHead className="text-right">ROE</TableHead>
-                  <TableHead className="text-right">ROIC</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockData.map((row) => (
-                  <TableRow key={row.year}>
-                    <TableCell className="font-semibold">{row.year}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.revenue)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.ebitda)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.netIncome)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.fcf)}</TableCell>
-                    <TableCell className="text-right font-mono">{row.marginNet.toFixed(1)}%</TableCell>
-                    <TableCell className="text-right font-mono">{row.roe.toFixed(1)}%</TableCell>
-                    <TableCell className="text-right font-mono">{row.roic.toFixed(1)}%</TableCell>
+        {periods.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">
+              {companies.length === 0
+                ? "Sube un Excel para ver el historial financiero"
+                : "Sin datos financieros para esta empresa"}
+            </p>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Año</TableHead>
+                    <TableHead className="text-right">Revenue</TableHead>
+                    <TableHead className="text-right">EBITDA</TableHead>
+                    <TableHead className="text-right">Net Income</TableHead>
+                    <TableHead className="text-right">FCF</TableHead>
+                    <TableHead className="text-right">Mg Neto</TableHead>
+                    <TableHead className="text-right">EPS</TableHead>
+                    <TableHead className="text-right">ROE</TableHead>
+                    <TableHead className="text-right">ROIC</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {periods.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="font-semibold">{row.fiscal_year}</TableCell>
+                      <TableCell className="text-right font-mono">{fmt(Number(row.revenue))}</TableCell>
+                      <TableCell className="text-right font-mono">{fmt(Number(row.ebitda))}</TableCell>
+                      <TableCell className="text-right font-mono">{fmt(Number(row.net_income))}</TableCell>
+                      <TableCell className="text-right font-mono">{fmt(Number(row.fcf))}</TableCell>
+                      <TableCell className="text-right font-mono">{pct(Number(row.margin_net))}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {row.eps != null ? `$${Number(row.eps).toFixed(2)}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{pct(Number(row.roe))}</TableCell>
+                      <TableCell className="text-right font-mono">{pct(Number(row.roic))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

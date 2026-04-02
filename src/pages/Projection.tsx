@@ -4,99 +4,180 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-
-const projectionData = [
-  { year: 2024, revenue: 410000, netIncome: 103000, fcf: 108000, intrinsicValue: 240, targetPrice: 235, expectedReturn: 28.8 },
-  { year: 2025, revenue: 438700, netIncome: 112100, fcf: 118800, intrinsicValue: 262, targetPrice: 258, expectedReturn: 41.4 },
-  { year: 2026, revenue: 469400, netIncome: 122200, fcf: 130700, intrinsicValue: 286, targetPrice: 282, expectedReturn: 54.5 },
-  { year: 2027, revenue: 502300, netIncome: 133200, fcf: 143800, intrinsicValue: 312, targetPrice: 308, expectedReturn: 68.8 },
-  { year: 2028, revenue: 537500, netIncome: 145200, fcf: 158200, intrinsicValue: 341, targetPrice: 336, expectedReturn: 84.1 },
-];
+import { Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useCompanies, useFinancialPeriods, useCompanyAssumptions } from "@/hooks/useCompanyData";
+import { calculateProjections } from "@/lib/valuationEngine";
 
 export default function Projection() {
   const { t } = useTranslation();
-  const fmt = (n: number) => `$${(n / 1000).toFixed(0)}B`;
+  const { data: companies = [], isLoading } = useCompanies();
+  const [selectedId, setSelectedId] = useState<string>("");
+
+  const companyId = selectedId || companies[0]?.id;
+  const company = companies.find((c) => c.id === companyId);
+  const { data: periods = [] } = useFinancialPeriods(companyId);
+  const { data: assumptions } = useCompanyAssumptions(companyId);
+
+  const lastPeriod = periods.length > 0 ? periods[periods.length - 1] : null;
+
+  const projections = useMemo(() => {
+    if (!lastPeriod || !company) return [];
+    const a = assumptions || { revenue_growth_rate: 10, net_margin_target: 25, discount_rate: 10, target_pe: 25 };
+    const fcfMargin = lastPeriod.margin_fcf ? Number(lastPeriod.margin_fcf) * 100 : 25;
+    return calculateProjections(
+      {
+        year: lastPeriod.fiscal_year,
+        revenue: Number(lastPeriod.revenue) || 0,
+        netIncome: Number(lastPeriod.net_income) || 0,
+        fcf: Number(lastPeriod.fcf) || 0,
+      },
+      {
+        revenueGrowthRate: Number(a.revenue_growth_rate) || 10,
+        netMarginTarget: lastPeriod.margin_net ? Number(lastPeriod.margin_net) * 100 : Number(a.net_margin_target) || 25,
+        fcfMarginTarget: fcfMargin,
+        targetPe: Number(a.target_pe) || 25,
+        discountRate: Number(a.discount_rate) || 10,
+        dilutedShares: Number(lastPeriod.diluted_shares) || 1,
+        currentPrice: Number(company.current_price) || 0,
+      }
+    );
+  }, [lastPeriod, company, assumptions]);
+
+  const fmt = (n: number) => {
+    if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+    if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+    return `$${n.toFixed(2)}`;
+  };
+
+  const lastProj = projections.length > 0 ? projections[projections.length - 1] : null;
+  
+
+  // Revenue CAGR over projection period
+  const revenueCagr = lastProj && lastPeriod && Number(lastPeriod.revenue) > 0
+    ? (Math.pow(lastProj.revenue / Number(lastPeriod.revenue), 1 / projections.length) - 1) * 100
+    : null;
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">{t("projection.title")}</h1>
-          <Select defaultValue="aapl">
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <Select value={companyId || ""} onValueChange={setSelectedId}>
+            <SelectTrigger className="w-56"><SelectValue placeholder="Selecciona empresa" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="aapl">AAPL - Apple</SelectItem>
-              <SelectItem value="msft">MSFT - Microsoft</SelectItem>
+              {companies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.ticker} - {c.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <p className="text-xs text-muted-foreground">{t("projection.cagr")} Revenue</p>
-            <p className="text-xl font-bold text-card-foreground mt-1">7.0%</p>
+        {projections.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">
+              {companies.length === 0
+                ? "Sube un Excel para generar proyecciones"
+                : "Sin datos financieros para esta empresa"}
+            </p>
           </Card>
-          <Card className="p-4">
-            <p className="text-xs text-muted-foreground">{t("projection.cagr")} FCF</p>
-            <p className="text-xl font-bold text-card-foreground mt-1">9.5%</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs text-muted-foreground">{t("projection.targetPrice")} 2028</p>
-            <p className="text-xl font-bold text-gain mt-1">$336</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs text-muted-foreground">{t("projection.expectedReturn")}</p>
-            <p className="text-xl font-bold text-gain mt-1">+84.1%</p>
-          </Card>
-        </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">{t("projection.cagr")} Revenue</p>
+                <p className="text-xl font-bold text-card-foreground mt-1">
+                  {revenueCagr != null ? `${revenueCagr.toFixed(1)}%` : "—"}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">{t("projection.targetPrice")} {lastProj?.year}</p>
+                <p className="text-xl font-bold text-green-500 mt-1">
+                  ${lastProj?.targetPrice.toFixed(2)}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">{t("projection.expectedReturn")} {lastProj?.year}</p>
+                <p className={`text-xl font-bold mt-1 ${(lastProj?.expectedReturn || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {lastProj ? `${lastProj.expectedReturn >= 0 ? "+" : ""}${lastProj.expectedReturn.toFixed(1)}%` : "—"}
+                </p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-muted-foreground">Retorno anualizado</p>
+                <p className={`text-xl font-bold mt-1 ${(lastProj?.expectedReturn || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
+                  {lastProj
+                    ? `${((Math.pow(1 + lastProj.expectedReturn / 100, 1 / projections.length) - 1) * 100).toFixed(1)}%`
+                    : "—"}
+                </p>
+              </Card>
+            </div>
 
-        <Card className="p-5">
-          <h3 className="text-sm font-semibold text-card-foreground mb-4">{t("projection.title")}</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={projectionData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="year" tick={{ fill: "hsl(220, 10%, 46%)" }} />
-                <YAxis tick={{ fill: "hsl(220, 10%, 46%)" }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}B`} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(222, 25%, 11%)", border: "1px solid hsl(222, 20%, 18%)", borderRadius: "8px", color: "hsl(220, 15%, 90%)" }} />
-                <Legend />
-                <Bar dataKey="revenue" name={t("projection.revenue")} fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="fcf" name={t("projection.fcf")} fill="hsl(152, 69%, 45%)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold text-card-foreground mb-4">{t("projection.title")}</h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={projections}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))" }} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `$${(v / 1e3).toFixed(0)}B`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        color: "hsl(var(--card-foreground))",
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="revenue" name={t("projection.revenue")} fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="fcf" name={t("projection.fcf")} fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
 
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("projection.year")}</TableHead>
-                  <TableHead className="text-right">{t("projection.revenue")}</TableHead>
-                  <TableHead className="text-right">{t("projection.netIncome")}</TableHead>
-                  <TableHead className="text-right">{t("projection.fcf")}</TableHead>
-                  <TableHead className="text-right">{t("projection.intrinsicValue")}</TableHead>
-                  <TableHead className="text-right">{t("projection.targetPrice")}</TableHead>
-                  <TableHead className="text-right">{t("projection.expectedReturn")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projectionData.map((row) => (
-                  <TableRow key={row.year}>
-                    <TableCell className="font-semibold">{row.year}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.revenue)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.netIncome)}</TableCell>
-                    <TableCell className="text-right font-mono">{fmt(row.fcf)}</TableCell>
-                    <TableCell className="text-right font-mono">${row.intrinsicValue}</TableCell>
-                    <TableCell className="text-right font-mono">${row.targetPrice}</TableCell>
-                    <TableCell className="text-right font-mono text-gain">+{row.expectedReturn.toFixed(1)}%</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("projection.year")}</TableHead>
+                      <TableHead className="text-right">{t("projection.revenue")}</TableHead>
+                      <TableHead className="text-right">{t("projection.netIncome")}</TableHead>
+                      <TableHead className="text-right">{t("projection.fcf")}</TableHead>
+                      <TableHead className="text-right">EPS</TableHead>
+                      <TableHead className="text-right">{t("projection.targetPrice")}</TableHead>
+                      <TableHead className="text-right">{t("projection.expectedReturn")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projections.map((row) => (
+                      <TableRow key={row.year}>
+                        <TableCell className="font-semibold">{row.year}</TableCell>
+                        <TableCell className="text-right font-mono">{fmt(row.revenue)}</TableCell>
+                        <TableCell className="text-right font-mono">{fmt(row.netIncome)}</TableCell>
+                        <TableCell className="text-right font-mono">{fmt(row.fcf)}</TableCell>
+                        <TableCell className="text-right font-mono">${row.eps.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">${row.targetPrice.toFixed(2)}</TableCell>
+                        <TableCell className={`text-right font-semibold ${row.expectedReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          {row.expectedReturn >= 0 ? "+" : ""}{row.expectedReturn.toFixed(1)}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );
