@@ -24,6 +24,7 @@ export function AppSidebar() {
   const mainItems = [
     { title: t("nav.dashboard"), url: "/", icon: LayoutDashboard },
     { title: t("nav.companies"), url: "/companies", icon: Building2 },
+    { title: i18n.language === "es" ? "Seguimiento" : "Tracking", url: "/tracking", icon: BarChart3 },
     { title: t("nav.upload"), url: "/upload", icon: Upload },
   ];
 

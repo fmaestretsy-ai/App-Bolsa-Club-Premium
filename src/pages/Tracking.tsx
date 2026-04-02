@@ -33,7 +33,7 @@ function PriceBar({ pct }: { pct: number | null }) {
 }
 
 export default function Tracking() {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
