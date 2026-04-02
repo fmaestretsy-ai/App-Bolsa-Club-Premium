@@ -23,6 +23,7 @@ import Assumptions from "./pages/Assumptions";
 import VersionHistory from "./pages/VersionHistory";
 import SettingsPage from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Tracking from "./pages/Tracking";
 
 const queryClient = new QueryClient();
 
