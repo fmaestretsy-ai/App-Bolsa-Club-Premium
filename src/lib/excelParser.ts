@@ -8,6 +8,7 @@ export interface ParsedFinancialData {
   targetPrice5y: number | null;
   priceFor15Return: number | null;
   estimatedAnnualReturn: number | null;
+  currentPrice: number | null;
 }
 
 export interface ParsedPeriod {
@@ -119,53 +120,72 @@ function detectCompanyFromFileName(fileName: string): { name: string | null; tic
   return { name: nameCandidate, ticker: tickerCandidate || null };
 }
 
-// Patterns to detect sector/industry from a cell
-const SECTOR_PATTERNS = [
-  /^Sector$|^Industry$|^Industria$/i,
-];
-
-// Patterns to detect summary/tracking data
-const SUMMARY_PATTERNS: [RegExp, string][] = [
-  [/Precio objetivo.*5\s*a[ñn]os|Target Price.*5.*Year/i, "targetPrice5y"],
-  [/Precio.*15%|Price.*15%/i, "priceFor15Return"],
-  [/Retorno anual estimado|Estimated Annual Return|% Retorno/i, "estimatedAnnualReturn"],
-];
-
-function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetPrice5y: number | null; priceFor15Return: number | null; estimatedAnnualReturn: number | null } {
+function extractSummaryData(wb: XLSX.WorkBook): { sector: string | null; targetPrice5y: number | null; priceFor15Return: number | null; estimatedAnnualReturn: number | null; currentPrice: number | null } {
   let sector: string | null = null;
   let targetPrice5y: number | null = null;
   let priceFor15Return: number | null = null;
   let estimatedAnnualReturn: number | null = null;
+  let currentPrice: number | null = null;
 
-  for (const sheetName of wb.SheetNames) {
-    const sheet = wb.Sheets[sheetName];
+  // Find valuation sheet (commonly named "4.Valoracion", "Valoracion", "Valuation")
+  const valSheetName = wb.SheetNames.find(s => /valoraci[oó]n|valuation/i.test(s));
+  if (valSheetName) {
+    const sheet = wb.Sheets[valSheetName];
     const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
-    for (let r = 0; r < Math.min(data.length, 50); r++) {
+    for (let r = 0; r < data.length; r++) {
       const row = data[r];
-      if (!row || !row[0]) continue;
-      const label = String(row[0]).trim();
+      if (!row) continue;
+      const label = String(row[0] ?? "").trim();
+      const labelC2 = String(row[2] ?? "").trim();
 
-      // Detect sector
-      if (!sector && SECTOR_PATTERNS.some(p => p.test(label)) && row[1]) {
-        sector = String(row[1]).trim();
+      // "Precio por acción actual" → col B has current price
+      if (/precio por acci[oó]n actual|current.*price/i.test(label)) {
+        currentPrice = parseNumericValue(row[1]);
       }
 
-      // Detect summary values
-      for (const [pattern, field] of SUMMARY_PATTERNS) {
-        if (pattern.test(label)) {
-          const val = parseNumericValue(row[1] ?? row[2]);
-          if (val !== null) {
-            if (field === "targetPrice5y") targetPrice5y = val;
-            else if (field === "priceFor15Return") priceFor15Return = val;
-            else if (field === "estimatedAnnualReturn") estimatedAnnualReturn = val;
-          }
+      // "Promedio" row after "Precio objetivo" section → last year column is 5Y target
+      if (/^Promedio$/i.test(label) && r > 25) {
+        // Col F (index 5) = 2030e target price (5 years out)
+        const target = parseNumericValue(row[5]);
+        if (target && target > 10) targetPrice5y = target;
+        // Col K (index 10) = CAGR 5 años = estimated annual return
+        const cagr = parseNumericValue(row[10]);
+        if (cagr !== null) estimatedAnnualReturn = cagr;
+      }
+
+      // "Precio de compra para generar un 15% anual" (label in col C, row 50)
+      if (/15%.*anual|15%.*annual/i.test(labelC2)) {
+        // The price is in the next row, col C (index 2)
+        const nextRow = data[r + 1];
+        if (nextRow) {
+          priceFor15Return = parseNumericValue(nextRow[2]);
         }
+      }
+
+      // Also check col A for "Retorno anual objetivo" which has the 15% price in col C
+      if (/retorno anual objetivo/i.test(label)) {
+        priceFor15Return = parseNumericValue(row[2]);
       }
     }
   }
 
-  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn };
+  // Try to detect sector from Google Finance description or from any sheet
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    for (let r = 0; r < Math.min(data.length, 60); r++) {
+      const row = data[r];
+      if (!row) continue;
+      const label = String(row[0] ?? "").trim();
+      if (!sector && /^Sector$|^Industry$|^Industria$/i.test(label) && row[1]) {
+        sector = String(row[1]).trim();
+      }
+    }
+    if (sector) break;
+  }
+
+  return { sector, targetPrice5y, priceFor15Return, estimatedAnnualReturn, currentPrice };
 }
 
 export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFinancialData {
@@ -270,6 +290,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     targetPrice5y: summaryData.targetPrice5y,
     priceFor15Return: summaryData.priceFor15Return,
     estimatedAnnualReturn: summaryData.estimatedAnnualReturn,
+    currentPrice: summaryData.currentPrice,
   };
 }
 

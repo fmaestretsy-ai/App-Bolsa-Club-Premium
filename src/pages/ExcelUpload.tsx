@@ -99,13 +99,13 @@ export default function ExcelUpload() {
 
         if (existingCompany) {
           companyId = existingCompany.id;
-          // Update company with new data from Excel
           await supabase.from("companies").update({
             sector: parsed.sector || undefined,
             target_price_5y: parsed.targetPrice5y,
             price_for_15_return: parsed.priceFor15Return,
             estimated_annual_return: parsed.estimatedAnnualReturn,
-          }).eq("id", existingCompany.id);
+            current_price: parsed.currentPrice,
+          } as any).eq("id", existingCompany.id);
         } else {
           const { data: newCompany, error: companyError } = await supabase
             .from("companies")
@@ -117,6 +117,7 @@ export default function ExcelUpload() {
               target_price_5y: parsed.targetPrice5y,
               price_for_15_return: parsed.priceFor15Return,
               estimated_annual_return: parsed.estimatedAnnualReturn,
+              current_price: parsed.currentPrice,
             } as any)
             .select("id")
             .single();
