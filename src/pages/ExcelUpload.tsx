@@ -189,6 +189,10 @@ export default function ExcelUpload() {
           interest_expense: p.interestExpense,
           interest_income: p.interestIncome,
           tax_expense: p.taxExpense,
+          inventories: p.inventories,
+          accounts_receivable: p.accountsReceivable,
+          accounts_payable: p.accountsPayable,
+          unearned_revenue: p.unearnedRevenue,
         }));
 
         const { error: periodsError } = await supabase
