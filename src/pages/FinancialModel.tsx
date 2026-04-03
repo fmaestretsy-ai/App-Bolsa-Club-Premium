@@ -29,13 +29,13 @@ function EditableCell({
   const [raw, setRaw] = useState("");
 
   const display = format === "percent"
-    ? `${(value * 100).toFixed(1)}%`
+    ? `${Math.round(value * 100)}%`
     : format === "decimal"
-    ? value.toFixed(2)
+    ? value.toFixed(1)
     : Math.round(value).toLocaleString();
 
   const handleStart = () => {
-    setRaw(format === "percent" ? (value * 100).toFixed(1) : String(value));
+    setRaw(format === "percent" ? String(Math.round(value * 100)) : String(value));
     setEditing(true);
   };
 
