@@ -112,49 +112,53 @@ function medPositive(arr: number[]): number {
 
 export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): FullModelResult {
   const N = raw.years.length;
+  if (N === 0) return emptyResult();
   const hist: YC[] = [];
+
+  // Safe array accessor — returns 0 for out-of-bounds or undefined
+  const sa = (arr: number[] | undefined, i: number): number => (arr && i < arr.length ? (arr[i] ?? 0) : 0);
 
   // ═══ STEPS 1-9: Historical ═══
   for (let i = 0; i < N; i++) {
-    const sales = raw.revenues[i];
-    const ebit = raw.operatingIncome[i];
-    const deprec = raw.depreciation[i] || 0;
-    const amortGW = raw.amortGoodwill[i] || 0;
+    const sales = sa(raw.revenues, i);
+    const ebit = sa(raw.operatingIncome, i);
+    const deprec = sa(raw.depreciation, i);
+    const amortGW = sa(raw.amortGoodwill, i);
     const da = -(deprec + amortGW);
     const ebitda = ebit - da;
-    const intExp = raw.interestExpense[i];
-    const intInc = raw.interestIncome[i];
+    const intExp = sa(raw.interestExpense, i);
+    const intInc = sa(raw.interestIncome, i);
     const totalInt = intExp + intInc;
     const ebt = ebit + totalInt;
-    const tax = raw.taxExpense[i];
+    const tax = sa(raw.taxExpense, i);
     const taxRate = ebt !== 0 ? Math.abs(tax) / ebt : 0;
     const consolNI = ebt + tax;
-    const mi = raw.minorityInterest[i];
+    const mi = sa(raw.minorityInterest, i);
     const netIncome = consolNI + mi;
-    const shares = raw.dilutedShares[i] || 1;
+    const shares = sa(raw.dilutedShares, i) || 1;
     const eps = netIncome / shares;
 
     // Step 2: WC
-    const inv = raw.inventory[i] || 0;
-    const ar = raw.accountsReceivable[i];
-    const ap = raw.accountsPayable[i];
-    const urC = raw.unearnedRevCurrent[i] || 0;
-    const urNC = raw.unearnedRevNonCurrent[i] || 0;
+    const inv = sa(raw.inventory, i);
+    const ar = sa(raw.accountsReceivable, i);
+    const ap = sa(raw.accountsPayable, i);
+    const urC = sa(raw.unearnedRevCurrent, i);
+    const urNC = sa(raw.unearnedRevNonCurrent, i);
     const wc = inv + ar - ap - urC - urNC;
     let cwc = 0;
-    if (i > 0 && raw.accountsPayable[i - 1] > 0) {
-      const pInv = raw.inventory[i - 1] || 0;
-      const pAR = raw.accountsReceivable[i - 1];
-      const pAP = raw.accountsPayable[i - 1];
-      const pURC = raw.unearnedRevCurrent[i - 1] || 0;
-      const pURNC = raw.unearnedRevNonCurrent[i - 1] || 0;
+    if (i > 0 && sa(raw.accountsPayable, i - 1) > 0) {
+      const pInv = sa(raw.inventory, i - 1);
+      const pAR = sa(raw.accountsReceivable, i - 1);
+      const pAP = sa(raw.accountsPayable, i - 1);
+      const pURC = sa(raw.unearnedRevCurrent, i - 1);
+      const pURNC = sa(raw.unearnedRevNonCurrent, i - 1);
       cwc = wc - (pInv + pAR - pAP - pURC - pURNC);
     }
 
     // Step 3: CapEx Maint
-    const capexRaw = raw.capex[i];
-    const salePPE = raw.salePPE[i] || 0;
-    const saleIntang = raw.saleIntangibles[i] || 0;
+    const capexRaw = sa(raw.capex, i);
+    const salePPE = sa(raw.salePPE, i);
+    const saleIntang = sa(raw.saleIntangibles, i);
     const capexNeto = capexRaw + saleIntang + salePPE;
     const capexMant = Math.abs(capexNeto) < deprec
       ? capexNeto + saleIntang
@@ -165,46 +169,46 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const fcfps = fcf / shares;
 
     // Step 5: Invested Capital & ROIC
-    const cashEq = raw.cashEquiv[i];
-    const mktSec = raw.totalCashSTI[i] - cashEq;
-    const stBorrow = raw.stBorrowings[i] || 0;
-    const curLTD = raw.currentLTD[i] || 0;
-    const finDivCur = raw.finDivDebtCurrent[i] || 0;
+    const cashEq = sa(raw.cashEquiv, i);
+    const mktSec = sa(raw.totalCashSTI, i) - cashEq;
+    const stBorrow = sa(raw.stBorrowings, i);
+    const curLTD = sa(raw.currentLTD, i);
+    const finDivCur = sa(raw.finDivDebtCurrent, i);
     const stDebt = stBorrow + curLTD + finDivCur;
-    const ltBorrow = raw.ltBorrowings[i] || 0;
-    const ltDebtVal = raw.ltDebt[i] || 0;
-    const finDivNC = raw.finDivDebtNC[i] || 0;
+    const ltBorrow = sa(raw.ltBorrowings, i);
+    const ltDebtVal = sa(raw.ltDebt, i);
+    const finDivNC = sa(raw.finDivDebtNC, i);
     const ltDebt = ltBorrow + ltDebtVal + finDivNC;
-    const curLeases = raw.currentCapLeases[i] || 0;
-    const ncLeases = raw.ncCapLeases[i] || 0;
-    const equity = raw.totalEquity[i];
+    const curLeases = sa(raw.currentCapLeases, i);
+    const ncLeases = sa(raw.ncCapLeases, i);
+    const equity = sa(raw.totalEquity, i);
     const ic = equity + stDebt + ltDebt + curLeases + ncLeases - mktSec;
     const nopat = ebit * (1 - taxRate);
     const roic = s(nopat, ic);
     const roe = s(netIncome, equity);
 
     // Step 6: Valuation
-    const basicSh = raw.basicShares[i] || shares;
-    const mktCap = raw.marketCapMM[i] * (shares / basicSh);
+    const basicSh = sa(raw.basicShares, i) || shares;
+    const mktCap = sa(raw.marketCapMM, i) * (shares / basicSh);
     const netDebt = (ltDebt + stDebt) - (cashEq + mktSec);
     const ev = mktCap + netDebt;
 
     // Step 7: Ratios (computed inline)
     // Step 8: Capital allocation
     const capexExp = capexNeto - capexMant;
-    const acq = raw.cashAcquisitions[i];
-    const divPaid = Math.abs(raw.dividendsPaid[i] || 0);
-    const buyback = Math.abs(raw.repurchaseStock[i] || 0);
-    const debtRep = Math.max(0, Math.abs(raw.debtRepaid[i] || 0) - (raw.debtIssued[i] || 0));
+    const acq = sa(raw.cashAcquisitions, i);
+    const divPaid = Math.abs(sa(raw.dividendsPaid, i));
+    const buyback = Math.abs(sa(raw.repurchaseStock, i));
+    const debtRep = Math.max(0, Math.abs(sa(raw.debtRepaid, i)) - sa(raw.debtIssued, i));
     const fcfAbs = Math.abs(fcf);
     const fcfPos = fcf > 0 ? fcf : 0;
 
     // Step 9: Red flags — sum specific extraordinary items
-    const aw = Math.abs(raw.assetWritedown[i] || 0);
-    const ig = Math.abs(raw.impairmentGoodwill[i] || 0);
-    const mr = Math.abs(raw.mergerRestructuring[i] || 0);
-    const ls = Math.abs(raw.legalSettlements[i] || 0);
-    const oui = Math.abs(raw.otherUnusualItems[i] || 0);
+    const aw = Math.abs(sa(raw.assetWritedown, i));
+    const ig = Math.abs(sa(raw.impairmentGoodwill, i));
+    const mr = Math.abs(sa(raw.mergerRestructuring, i));
+    const ls = Math.abs(sa(raw.legalSettlements, i));
+    const oui = Math.abs(sa(raw.otherUnusualItems, i));
     const unusualItems = mr + ls + aw + oui;
 
     // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
@@ -215,7 +219,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       intExp, intInc, totalInt, ebt, tax, taxRate,
       consolNI, mi, netIncome, eps, shares,
       capexMant, wc, cwc, fcf, fcfps,
-      netCashChange: raw.netCashChangeHist[i],
+      netCashChange: sa(raw.netCashChangeHist, i),
       inv, ar, ap, urC, urNC,
       nopat, cashEq, mktSec, stDebt, ltDebt: ltDebt,
       curLeases, ncLeases, equity, ic, roe, roic, reinvRate,
@@ -228,9 +232,9 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       buybackPct: fcfPos > 0 ? buyback / fcfPos : 0,
       debtRepayPct: fcfPos > 0 ? debtRep / fcfPos : 0,
       totalAllocPct: 0,
-      impPct: s(aw + ig, sales), sbcPct: s(raw.sbc[i] || 0, sales),
-      divstPct: s(raw.divestitures[i] || 0, sales),
-      issuancePct: s(raw.issuanceStock[i] || 0, sales),
+      impPct: s(aw + ig, sales), sbcPct: s(sa(raw.sbc, i), sales),
+      divstPct: s(sa(raw.divestitures, i), sales),
+      issuancePct: s(sa(raw.issuanceStock, i), sales),
       extraPct: s(unusualItems, sales),
     });
     const h = hist[hist.length - 1];
@@ -273,10 +277,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   // ─── Equity projection: retained earnings model ───
   // Capital return ratio = median of (buybacks + dividends) / net income
   const capitalReturnRatios = hist
-    .map(h => {
+    .map((h, idx) => {
       if (h.netIncome <= 0) return null;
-      const buyback = Math.abs(raw.repurchaseStock[hist.indexOf(h)] || 0);
-      const divPaid = Math.abs(raw.dividendsPaid[hist.indexOf(h)] || 0);
+      const buyback = Math.abs(sa(raw.repurchaseStock, idx));
+      const divPaid = Math.abs(sa(raw.dividendsPaid, idx));
       return (buyback + divPaid) / h.netIncome;
     })
     .filter((r): r is number => r != null && r >= 0 && r < 2 && isFinite(r));
@@ -438,7 +442,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
   // ═══ Medians ═══
   // Exclude years with incomplete CF data (e.g. appended 2025 with capex=0)
-  const histWithCF = hist.filter((h, i) => !(raw.capex[i] === 0 && raw.repurchaseStock[i] === 0 && i === N - 1));
+  const histWithCF = hist.filter((h, i) => !(sa(raw.capex, i) === 0 && sa(raw.repurchaseStock, i) === 0 && i === N - 1));
   const medians: Record<string, number> = {
     per: medPositive(hist.map(h => h.per)),
     evFcf: medPositive(hist.map(h => h.evFcf)),
