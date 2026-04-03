@@ -213,7 +213,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const unusualItems = mr + ls + aw + oui;
 
     // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
-    const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - (deprec + amortGW) + cwc) / nopat : 0;
+    const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - Math.abs(deprec + amortGW) + cwc) / nopat : 0;
 
     hist.push({
       year: raw.years[i], sales, ebitda, da, ebit,
