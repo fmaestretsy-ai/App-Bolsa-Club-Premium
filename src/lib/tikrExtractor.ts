@@ -74,6 +74,7 @@ export interface TikrModelInputs {
   targetEVFCF: number;
   targetEVEBITDA: number;
   targetEVEBIT: number;
+  taxRateEst: number[];
   targetReturn: number;
 }
 
