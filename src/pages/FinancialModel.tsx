@@ -694,10 +694,11 @@ export default function FinancialModel() {
                   })}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.netDebtEbitda[y] ?? 0.3} format="decimal"
-                      onChange={v => updateInput(prev => ({
-                        ...prev,
-                        netDebtEbitda: { ...prev.netDebtEbitda, [y]: v },
-                      }))}
+                      onChange={v => updateInput(prev => {
+                        const updated: Record<number, number> = {};
+                        pYears.forEach(yr => { updated[yr] = v; });
+                        return { ...prev, netDebtEbitda: updated };
+                      })}
                     />
                   ))}
                 />
