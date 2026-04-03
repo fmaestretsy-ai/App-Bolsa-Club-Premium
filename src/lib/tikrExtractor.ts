@@ -280,6 +280,8 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   if (col2025 < 0) return;
 
   const lastHistYear = raw.years[raw.years.length - 1] || 2024;
+  // If 2025 (or later) is already in the raw data, don't append again
+  if (lastHistYear >= 2025) return;
   const year2025 = lastHistYear + 1;
 
   // Read key IS values
