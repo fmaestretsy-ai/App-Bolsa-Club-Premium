@@ -490,7 +490,7 @@ export default function FinancialModel() {
                   projValues={result.projected.map(p => fmt(p.dilutedShares))}
                 />
                 {/* Shares Growth - ORANGE */}
-                <Row label="    Y/Y Growth %" isSubRow
+                <Row label="    Y/Y Growth %" isSubRow isPercent
                   histValues={histGrowth("dilutedShares")}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.shareGrowth[y] ?? -0.02} format="percent"
