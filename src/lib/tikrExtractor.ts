@@ -397,8 +397,9 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.debtRepaid.push(debtRepaid2025);
   raw.netCashChangeHist.push(nc2025);
   raw.marketCapMM.push(mktCap2025);
-  raw.ebtExclUnusual.push(ebtExcl2025);
-  raw.ebtInclUnusual.push(ebtIncl2025);
+  raw.mergerRestructuring.push(mergerRestr2025);
+  raw.legalSettlements.push(legalSettl2025);
+  raw.otherUnusualItems.push(otherUnusual2025);
 }
 
 // ─── Manual inputs extraction (label-based) ───
