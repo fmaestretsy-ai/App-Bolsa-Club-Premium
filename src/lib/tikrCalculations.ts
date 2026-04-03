@@ -169,46 +169,46 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const fcfps = fcf / shares;
 
     // Step 5: Invested Capital & ROIC
-    const cashEq = raw.cashEquiv[i];
-    const mktSec = raw.totalCashSTI[i] - cashEq;
-    const stBorrow = raw.stBorrowings[i] || 0;
-    const curLTD = raw.currentLTD[i] || 0;
-    const finDivCur = raw.finDivDebtCurrent[i] || 0;
+    const cashEq = sa(raw.cashEquiv, i);
+    const mktSec = sa(raw.totalCashSTI, i) - cashEq;
+    const stBorrow = sa(raw.stBorrowings, i);
+    const curLTD = sa(raw.currentLTD, i);
+    const finDivCur = sa(raw.finDivDebtCurrent, i);
     const stDebt = stBorrow + curLTD + finDivCur;
-    const ltBorrow = raw.ltBorrowings[i] || 0;
-    const ltDebtVal = raw.ltDebt[i] || 0;
-    const finDivNC = raw.finDivDebtNC[i] || 0;
+    const ltBorrow = sa(raw.ltBorrowings, i);
+    const ltDebtVal = sa(raw.ltDebt, i);
+    const finDivNC = sa(raw.finDivDebtNC, i);
     const ltDebt = ltBorrow + ltDebtVal + finDivNC;
-    const curLeases = raw.currentCapLeases[i] || 0;
-    const ncLeases = raw.ncCapLeases[i] || 0;
-    const equity = raw.totalEquity[i];
+    const curLeases = sa(raw.currentCapLeases, i);
+    const ncLeases = sa(raw.ncCapLeases, i);
+    const equity = sa(raw.totalEquity, i);
     const ic = equity + stDebt + ltDebt + curLeases + ncLeases - mktSec;
     const nopat = ebit * (1 - taxRate);
     const roic = s(nopat, ic);
     const roe = s(netIncome, equity);
 
     // Step 6: Valuation
-    const basicSh = raw.basicShares[i] || shares;
-    const mktCap = raw.marketCapMM[i] * (shares / basicSh);
+    const basicSh = sa(raw.basicShares, i) || shares;
+    const mktCap = sa(raw.marketCapMM, i) * (shares / basicSh);
     const netDebt = (ltDebt + stDebt) - (cashEq + mktSec);
     const ev = mktCap + netDebt;
 
     // Step 7: Ratios (computed inline)
     // Step 8: Capital allocation
     const capexExp = capexNeto - capexMant;
-    const acq = raw.cashAcquisitions[i];
-    const divPaid = Math.abs(raw.dividendsPaid[i] || 0);
-    const buyback = Math.abs(raw.repurchaseStock[i] || 0);
-    const debtRep = Math.max(0, Math.abs(raw.debtRepaid[i] || 0) - (raw.debtIssued[i] || 0));
+    const acq = sa(raw.cashAcquisitions, i);
+    const divPaid = Math.abs(sa(raw.dividendsPaid, i));
+    const buyback = Math.abs(sa(raw.repurchaseStock, i));
+    const debtRep = Math.max(0, Math.abs(sa(raw.debtRepaid, i)) - sa(raw.debtIssued, i));
     const fcfAbs = Math.abs(fcf);
     const fcfPos = fcf > 0 ? fcf : 0;
 
     // Step 9: Red flags — sum specific extraordinary items
-    const aw = Math.abs(raw.assetWritedown[i] || 0);
-    const ig = Math.abs(raw.impairmentGoodwill[i] || 0);
-    const mr = Math.abs(raw.mergerRestructuring[i] || 0);
-    const ls = Math.abs(raw.legalSettlements[i] || 0);
-    const oui = Math.abs(raw.otherUnusualItems[i] || 0);
+    const aw = Math.abs(sa(raw.assetWritedown, i));
+    const ig = Math.abs(sa(raw.impairmentGoodwill, i));
+    const mr = Math.abs(sa(raw.mergerRestructuring, i));
+    const ls = Math.abs(sa(raw.legalSettlements, i));
+    const oui = Math.abs(sa(raw.otherUnusualItems, i));
     const unusualItems = mr + ls + aw + oui;
 
     // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
