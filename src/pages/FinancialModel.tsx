@@ -267,6 +267,24 @@ export default function FinancialModel() {
     saveMutation.mutate(newInputs);
   }, [modelInputs, saveMutation]);
 
+  /** Update a per-year Record field: sets the edited year + all subsequent years to the new value */
+  const updatePerYear = useCallback((
+    field: 'revenueGrowth' | 'ebitMargin' | 'taxRate' | 'shareGrowth' | 'netDebtEbitda' | 'minorityInterestsPct',
+    editedYear: number,
+    value: number,
+  ) => {
+    updateInput(prev => {
+      const updated = { ...prev[field] };
+      pYearsRef.forEach(y => {
+        if (y >= editedYear) updated[y] = value;
+      });
+      return { ...prev, [field]: updated };
+    });
+  }, [updateInput]);
+
+  // Stable ref for pYears to avoid stale closures
+  const pYearsRef = projectionYears;
+
   const handleCompanyChange = (id: string) => {
     setSelectedCompanyId(id);
     setLocalInputs(null);
