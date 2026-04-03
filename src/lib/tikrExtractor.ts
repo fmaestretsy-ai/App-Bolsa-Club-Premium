@@ -247,7 +247,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     amortGoodwill: g(cf, cfH, "Amortization of Goodwill", "Amortización fondo de comercio"),
     capex: g(cf, cfH, "Capital Expenditure", "CapEx", "Inversión en capital"),
     salePPE: g(cf, cfH, "Sale of Property, Plant, and Equipment", "Sale of PPE", "Venta de PPE"),
-    saleIntangibles: g(cf, cfH, "Sale (Purchase) of Intangible", "Intangible assets", "Intangibles"),
+    saleIntangibles: findSaleIntangiblesValues(cf, cfH.cols),
     cashAcquisitions: g(cf, cfH, "Cash Acquisitions", "Acquisitions", "Adquisiciones"),
     divestitures: g(cf, cfH, "Divestitures", "Divestiture", "Desinversiones"),
     sbc: g(cf, cfH, "Stock-Based Compensation", "SBC", "Compensación en acciones"),
