@@ -22,6 +22,9 @@ export interface TikrRawData {
   basicShares: number[];
   assetWritedown: number[];
   impairmentGoodwill: number[];
+  mergerRestructuring: number[];
+  legalSettlements: number[];
+  otherUnusualItems: number[];
   cashEquiv: number[];
   totalCashSTI: number[];
   inventory: number[];
@@ -53,8 +56,6 @@ export interface TikrRawData {
   debtRepaid: number[];
   netCashChangeHist: number[];
   marketCapMM: number[];
-  ebtExclUnusual: number[];
-  ebtInclUnusual: number[];
 }
 
 export interface TikrModelInputs {
