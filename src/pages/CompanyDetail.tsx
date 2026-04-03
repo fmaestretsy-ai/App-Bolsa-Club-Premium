@@ -242,7 +242,7 @@ export default function CompanyDetail() {
                           <TableCell className="text-right font-mono">{pct(Number(p.margin_ebitda))}</TableCell>
                           <TableCell className="text-right font-mono">{pct(Number(p.margin_net))}</TableCell>
                           <TableCell className="text-right font-mono">
-                            {p.eps != null ? `$${Number(p.eps).toFixed(2)}` : "—"}
+                            {p.eps != null ? `${cs}${Number(p.eps).toFixed(2)}` : "—"}
                           </TableCell>
                           <TableCell className="text-right font-mono">{pct(Number(p.roe))}</TableCell>
                           <TableCell className="text-right font-mono">{pct(Number(p.roic))}</TableCell>
