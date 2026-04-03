@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { detectCurrency } from "./tikrExtractor";
 
 export interface ProjectionTarget {
   year: number;
@@ -38,6 +39,7 @@ export interface ParsedFinancialData {
   companyName: string | null;
   ticker: string | null;
   sector: string | null;
+  currency: string | null;
   periods: ParsedPeriod[];
   projectedPeriods: ParsedPeriod[];
   targetPrice5y: number | null;
@@ -410,6 +412,27 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
   const { name: detectedName, ticker: detectedTicker } = detectCompanyFromFileName(fileName);
   const summaryData = extractSummaryData(wb);
 
+  // Detect currency from TIKR sheets or summary headers
+  let detectedCurrency: string | null = detectCurrency(wb);
+  if (!detectedCurrency) {
+    // Fallback: scan first rows of summary sheets
+    const CURRENCY_CODES = "USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS";
+    const pattern = new RegExp(`(?:amounts?|values?|currency|reported)\\s+(?:in\\s+)?(${CURRENCY_CODES})|(${CURRENCY_CODES})\\s*(?:millions?|thousands?|MM|M)`, "i");
+    outer: for (const sheetName of wb.SheetNames.slice(0, 4)) {
+      const sheet = wb.Sheets[sheetName];
+      if (!sheet) continue;
+      const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+      for (let r = 0; r < Math.min(6, data.length); r++) {
+        const row = data[r];
+        if (!row) continue;
+        for (const cell of row) {
+          const m = String(cell ?? "").match(pattern);
+          if (m) { detectedCurrency = (m[1] || m[2]).toUpperCase(); break outer; }
+        }
+      }
+    }
+  }
+
   const allPeriods = new Map<number, ParsedPeriod>();
   const sheetsToProcess = wb.SheetNames.slice(0, 4);
 
@@ -516,6 +539,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     companyName: detectedName,
     ticker: detectedTicker,
     sector: summaryData.sector,
+    currency: detectedCurrency,
     periods,
     projectedPeriods,
     targetPrice5y: summaryData.targetPrice5y,

@@ -11,6 +11,7 @@
 import * as XLSX from "xlsx";
 
 export interface TikrRawData {
+  currency: string | null;
   years: number[];
   revenues: number[];
   operatingIncome: number[];
@@ -194,6 +195,30 @@ function findSaleIntangiblesValues(sheet: unknown[][], cols: number[]): number[]
   return vals(row, cols);
 }
 
+// ─── Currency detection ───
+
+const CURRENCY_CODES = "USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS|ILS|RUB|NZD|THB|IDR|PHP|MYR|VND|CZK|HUF|RON";
+const CURRENCY_PATTERN = new RegExp(`(?:amounts?|values?|currency|moneda|reported)\\s+(?:in\\s+)?(${CURRENCY_CODES})`, "i");
+const UNIT_PATTERN = new RegExp(`(${CURRENCY_CODES})\\s*(?:millions?|thousands?|billions?|MM|M|K|B)`, "i");
+
+export function detectCurrency(wb: XLSX.WorkBook): string | null {
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) continue;
+    const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    for (let r = 0; r < Math.min(6, data.length); r++) {
+      const row = data[r];
+      if (!row) continue;
+      for (const cell of row) {
+        const s = String(cell ?? "");
+        const m = s.match(CURRENCY_PATTERN) || s.match(UNIT_PATTERN);
+        if (m) return m[1].toUpperCase();
+      }
+    }
+  }
+  return null;
+}
+
 // ─── TIKR raw data extraction ───
 
 export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
@@ -213,6 +238,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     vals(findRow(sheet, ...terms), h.cols);
 
   const raw: TikrRawData = {
+    currency: detectCurrency(wb),
     years: hdr.years,
     revenues: g(is, hdr, "Total Revenues", "Revenue", "Ventas"),
     operatingIncome: g(is, hdr, "Operating Income", "EBIT"),
