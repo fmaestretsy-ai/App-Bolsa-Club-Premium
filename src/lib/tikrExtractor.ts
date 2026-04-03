@@ -252,7 +252,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
   };
 
   // ─── Append 2025 from summary sheets (replacing LTM) ───
-  append2025FromSummary(wb, raw);
+  appendLTMFromSummary(wb, raw);
 
   return raw;
 }
