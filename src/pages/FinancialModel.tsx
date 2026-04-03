@@ -410,7 +410,7 @@ export default function FinancialModel() {
                     if (!h) return null;
                     return (h.interestExpense ?? 0) + (h.interestIncome ?? 0);
                   })}
-                  projValues={result.projected.map(p => fmt(p.totalInterest))}
+                  projValues={result.projected.map(p => fmtP(p.totalInterest))}
                 />
                 {/* EBT */}
                 <Row label="EBT" isBold
