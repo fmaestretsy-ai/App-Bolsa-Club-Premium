@@ -76,13 +76,26 @@ export default function Tracking() {
       });
       if (error) throw error;
       if (data?.success && data.data?.price) {
+        const newPrice = data.data.price;
+        const sym = getCurrencySymbol(company.currency);
         const updateFields: Database["public"]["Tables"]["companies"]["Update"] = {
-          current_price: data.data.price,
+          current_price: newPrice,
           week_52_high: data.data.week52High,
           week_52_low: data.data.week52Low,
           sector: data.data.sector || company.sector || null,
           last_price_update: new Date().toISOString(),
         };
+
+        // Recalculate estimated_annual_return based on new price and target_price_5y
+        if (company.target_price_5y && newPrice > 0) {
+          const years = 5;
+          const newReturn = Math.pow(company.target_price_5y / newPrice, 1 / years) - 1;
+          updateFields.estimated_annual_return = newReturn;
+
+          // Recalculate price_for_15_return (discount target by 15% CAGR)
+          const targetReturn = 0.15;
+          updateFields.price_for_15_return = company.target_price_5y / Math.pow(1 + targetReturn, years);
+        }
 
         const { error: updateError } = await supabase
           .from("companies")
@@ -92,7 +105,7 @@ export default function Tracking() {
         if (updateError) throw updateError;
 
         queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
-        toast.success(`${company.ticker}: $${data.data.price}`);
+        toast.success(`${company.ticker}: ${sym}${newPrice}`);
       } else {
         toast.error(`No se pudo obtener precio para ${company.ticker}`);
       }
