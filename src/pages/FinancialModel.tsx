@@ -425,7 +425,7 @@ export default function FinancialModel() {
                 {/* Tax Expense */}
                 <Row label="Tax Expense - en negativo"
                   histValues={getHist("taxExpense")}
-                  projValues={result.projected.map(p => fmt(p.taxExpense))}
+                  projValues={result.projected.map(p => fmtP(p.taxExpense))}
                 />
                 {/* Tax Rate - ORANGE */}
                 <Row label="    Tax rate %" isSubRow
