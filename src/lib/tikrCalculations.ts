@@ -336,9 +336,11 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const eps = netIncome / shares;
 
     // FCF
-    const capexMant = -(inputs.capexMantToSales * sales);
-    const wc = inputs.wcToSalesEst * sales;
-    const cwc = j === 0 ? wc - prevWC : wc - (inputs.wcToSalesEst * prevSales);
+    const capexMantRate = inputs.capexMantToSales[j] ?? inputs.capexMantToSales[0] ?? 0;
+    const wcRate = inputs.wcToSalesEst[j] ?? inputs.wcToSalesEst[0] ?? 0;
+    const capexMant = -(capexMantRate * sales);
+    const wc = wcRate * sales;
+    const cwc = j === 0 ? wc - prevWC : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
     const fcfps = fcf / shares;
 
