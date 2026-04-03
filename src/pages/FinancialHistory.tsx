@@ -86,8 +86,8 @@ export default function FinancialHistory() {
                       <TableCell className="text-right font-mono">{fmt(Number(row.net_income))}</TableCell>
                       <TableCell className="text-right font-mono">{fmt(Number(row.fcf))}</TableCell>
                       <TableCell className="text-right font-mono">{pct(Number(row.margin_net))}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {row.eps != null ? `$${Number(row.eps).toFixed(2)}` : "—"}
+                       <TableCell className="text-right font-mono">
+                        {row.eps != null ? `${cs}${Number(row.eps).toFixed(2)}` : "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono">{pct(Number(row.roe))}</TableCell>
                       <TableCell className="text-right font-mono">{pct(Number(row.roic))}</TableCell>

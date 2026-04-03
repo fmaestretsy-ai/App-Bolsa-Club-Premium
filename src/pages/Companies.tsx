@@ -70,7 +70,7 @@ export default function Companies() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground">{c.country}</TableCell>
                     <TableCell className="text-right font-mono">
-                      {c.current_price ? `$${Number(c.current_price).toFixed(2)}` : "—"}
+                      {c.current_price ? `${getCurrencySymbol(c.currency)}${Number(c.current_price).toFixed(2)}` : "—"}
                     </TableCell>
                   </TableRow>
                 ))}

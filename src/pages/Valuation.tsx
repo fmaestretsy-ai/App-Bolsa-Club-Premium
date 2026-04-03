@@ -511,7 +511,7 @@ export default function Valuation() {
                           borderRadius: "8px",
                           color: "hsl(var(--card-foreground))",
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, undefined]}
+                        formatter={(value: number) => [`${cs}${value.toFixed(2)}`, undefined]}
                       />
                       <Legend />
                       <Bar dataKey="PER ex Cash" fill="hsl(var(--chart-1))" radius={[2, 2, 0, 0]} />

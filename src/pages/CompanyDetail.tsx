@@ -368,8 +368,8 @@ export default function CompanyDetail() {
                             <TableCell className="text-right font-mono">{fmt(row.revenue)}</TableCell>
                             <TableCell className="text-right font-mono">{fmt(row.netIncome)}</TableCell>
                             <TableCell className="text-right font-mono">{fmt(row.fcf)}</TableCell>
-                            <TableCell className="text-right font-mono">${row.eps.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-mono">${row.targetPrice.toFixed(2)}</TableCell>
+                             <TableCell className="text-right font-mono">{cs}{row.eps.toFixed(2)}</TableCell>
+                             <TableCell className="text-right font-mono">{cs}{row.targetPrice.toFixed(2)}</TableCell>
                             <TableCell className={`text-right font-semibold ${row.expectedReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
                               {row.expectedReturn >= 0 ? "+" : ""}{row.expectedReturn.toFixed(1)}%
                             </TableCell>

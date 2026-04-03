@@ -605,7 +605,7 @@ export default function FinancialModel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Precio compra:</span>
-                  <span className="font-semibold text-foreground">${fmt(buyPrice)}</span>
+                  <span className="font-semibold text-foreground">{getCurrencySymbol(companies.find(c => c.id === companyId)?.currency)}{fmt(buyPrice)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">vs precio actual:</span>

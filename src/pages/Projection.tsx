@@ -163,7 +163,7 @@ export default function Projection() {
                     {projections.map((row) => (
                       <TableRow key={row.year}>
                         <TableCell className="font-semibold">{row.year}</TableCell>
-                        <TableCell className="text-right font-mono">${row.targetPrice.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">{cs}{row.targetPrice.toFixed(2)}</TableCell>
                         <TableCell className={`text-right font-semibold ${row.expectedReturn >= 0 ? "text-success" : "text-destructive"}`}>
                           {row.expectedReturn >= 0 ? "+" : ""}{row.expectedReturn.toFixed(1)}%
                         </TableCell>
