@@ -259,7 +259,7 @@ export default function FinancialModel() {
     );
   }
 
-  const { hist, proj, medians, targetPrices, cagr5y, safetyMargins, buyPrice, buyPriceVsCurrent, redFlagCounts, projTaxRate } = result;
+  const { hist, proj, medians, targetPrices, cagr5y, safetyMargins, buyPrice, buyPriceVsCurrent, redFlagCounts } = result;
   const hYears = hist.map(h => h.year);
   const pYears = proj.map(p => p.year);
   const N = hist.length;
