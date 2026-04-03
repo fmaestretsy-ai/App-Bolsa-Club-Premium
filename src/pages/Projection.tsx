@@ -139,7 +139,7 @@ export default function Projection() {
                         borderRadius: "8px",
                         color: "hsl(var(--card-foreground))",
                       }}
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, "Precio objetivo"]}
+                      formatter={(value: number) => [`${cs}${value.toFixed(2)}`, "Precio objetivo"]}
                     />
                     <Legend />
                     <Bar dataKey="targetPrice" name="Precio objetivo EV/FCF" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
