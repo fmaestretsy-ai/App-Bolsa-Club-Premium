@@ -285,7 +285,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   let prevSales = inputs.lastSales;
   let prevDA = inputs.lastDA;
   let prevShares = inputs.lastShares;
-  let prevWC = last.wc;
+  let _prevWC = last.wc;
   let prevCashEq = last.cashEq;
   let prevMktSec = last.mktSec;
   let prevNetDebt = last.netDebt;
