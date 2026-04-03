@@ -175,7 +175,7 @@ export default function CompanyDetail() {
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">{t("valuation.intrinsicValue")}</p>
             <p className="text-xl font-bold text-card-foreground mt-1">
-              {avgBaseIV ? `$${avgBaseIV.toFixed(2)}` : "—"}
+              {avgBaseIV ? `${cs}${avgBaseIV.toFixed(2)}` : "—"}
             </p>
             <p className="text-xs text-muted-foreground">{t("valuation.base")} (promedio)</p>
           </Card>
