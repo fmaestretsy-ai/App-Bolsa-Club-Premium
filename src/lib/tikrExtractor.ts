@@ -378,8 +378,8 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
     const row = findRow(isSheet, ...terms);
     return row && isLtmCol >= 0 ? n(row[isLtmCol]) : 0;
   };
-  const ebtExcl2025 = isLtmVal("EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
-  const ebtIncl2025 = isLtmVal("EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
+  const ebtExcl2025 = isLtmVal("EBT, Excl. Unusual Items", "EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
+  const ebtIncl2025 = isLtmVal("EBT, Incl. Unusual Items", "EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
 
   // Append to raw data
   raw.years.push(year2025);
