@@ -53,6 +53,8 @@ export interface TikrRawData {
   debtRepaid: number[];
   netCashChangeHist: number[];
   marketCapMM: number[];
+  ebtExclUnusual: number[];
+  ebtInclUnusual: number[];
 }
 
 export interface TikrModelInputs {
