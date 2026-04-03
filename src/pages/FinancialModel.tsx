@@ -79,11 +79,6 @@ const fmt = (v: number | null | undefined, decimals = 0) => {
   if (decimals === 0) return Math.round(v).toLocaleString();
   return v.toFixed(decimals);
 };
-const fmtN = (v: number | null | undefined) => {
-  if (v == null || isNaN(v) || !isFinite(v)) return "—";
-  if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
-  return Math.round(v).toLocaleString();
-};
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v) || !isFinite(v)) return "—";
   return `${(v * 100).toFixed(1)}%`;
