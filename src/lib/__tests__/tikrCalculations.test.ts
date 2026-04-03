@@ -5,113 +5,89 @@ import type { TikrRawData, TikrModelInputs } from "../tikrExtractor";
 function makeRaw(overrides: Partial<TikrRawData> = {}): TikrRawData {
   const zeros = [0, 0, 0];
   return {
-    years: [2022, 2023, 2024],
-    revenues: [1000, 1100, 1200],
-    operatingIncome: [300, 330, 360],
-    interestExpense: [-10, -12, -14],
-    interestIncome: [5, 6, 7],
-    taxExpense: [-60, -65, -70],
+    years: [2016, 2017, 2020],
+    revenues: [135987, 177866, 386064],
+    operatingIncome: [4186, 4106, 22899],
+    interestExpense: [-484, -848, -1647],
+    interestIncome: [100, 202, 555],
+    taxExpense: [-1425, -769, -2863],
     minorityInterest: zeros,
-    dilutedShares: [100, 100, 100],
-    basicShares: [100, 100, 100],
-    depreciation: [50, 55, 60],
-    amortGoodwill: zeros,
-    capex: [-80, -90, -100],
-    salePPE: [5, 5, 5],
-    saleIntangibles: [-10, -10, -10],
-    cashAcquisitions: zeros,
+    dilutedShares: [500, 507, 526],
+    basicShares: [484, 487, 504],
+    depreciation: [7829, 11112, 24671],
+    amortGoodwill: [287, 366, 509],
+    capex: [-7804, -11955, -40140],
+    salePPE: [0, 0, 5096],
+    saleIntangibles: zeros,
+    cashAcquisitions: [-116, -13972, -2325],
     divestitures: zeros,
-    sbc: zeros,
+    sbc: [2975, 4215, 9208],
     issuanceStock: zeros,
     repurchaseStock: zeros,
     dividendsPaid: zeros,
-    debtIssued: zeros,
-    debtRepaid: zeros,
-    netCashChangeHist: zeros,
-    cashEquiv: [200, 220, 240],
-    totalCashSTI: [250, 270, 290],
-    inventory: [50, 55, 60],
-    accountsReceivable: [80, 88, 96],
-    accountsPayable: [40, 44, 48],
-    unearnedRevCurrent: zeros,
-    unearnedRevNonCurrent: zeros,
+    debtIssued: [6200, 16000, 10525],
+    debtRepaid: [-327, -9200, -1553],
+    netCashChangeHist: [3444, 2062, 10076],
+    cashEquiv: [19334, 20522, 42122],
+    totalCashSTI: [25981, 30986, 84261],
+    inventory: [11461, 16047, 23795],
+    accountsReceivable: [8339, 9000, 19600],
+    accountsPayable: [25309, 34616, 72539],
+    unearnedRevCurrent: [4768, 5097, 9708],
+    unearnedRevNonCurrent: [2400, 3000, 6600],
     stBorrowings: zeros,
-    currentLTD: zeros,
+    currentLTD: [1056, 100, 1155],
     finDivDebtCurrent: zeros,
-    ltBorrowings: [100, 100, 100],
+    ltBorrowings: [7694, 24743, 31816],
     ltDebt: zeros,
     finDivDebtNC: zeros,
     currentCapLeases: zeros,
     ncCapLeases: zeros,
-    totalEquity: [500, 550, 600],
+    totalEquity: [19285, 27709, 93404],
     assetWritedown: zeros,
     impairmentGoodwill: zeros,
     mergerRestructuring: zeros,
     legalSettlements: zeros,
     otherUnusualItems: zeros,
-    marketCapMM: [2000, 2200, 2400],
+    marketCapMM: [356313, 563519, 1634179],
     ...overrides,
   };
 }
 
 function makeInputs(): TikrModelInputs {
   return {
-    lastSales: 1200,
-    lastDA: -60,
-    lastShares: 100,
+    lastSales: 386064, lastDA: -24671, lastShares: 526,
     growthRates: [0.1, 0.1, 0.1, 0.1, 0.1],
-    ebitMarginEst: [0.3, 0.3, 0.3, 0.3, 0.3],
+    ebitMarginEst: [0.12, 0.12, 0.12, 0.12, 0.12],
     shareDilutionRate: 0.01,
-    capexMantToSales: [0.05, 0.05, 0.05, 0.05, 0.05],
-    wcToSalesEst: [0.08, 0.08, 0.08, 0.08, 0.08],
+    capexMantToSales: [0.06, 0.06, 0.06, 0.06, 0.06],
+    wcToSalesEst: [-0.08, -0.08, -0.08, -0.08, -0.08],
     netCashChange: [0, 0, 0, 0, 0],
     netDebtToEBITDA: [0.3, 0.3, 0.3, 0.3, 0.3],
-    currentPrice: 24,
-    targetPER: 20,
-    targetEVFCF: 18,
-    targetEVEBITDA: 14,
-    targetEVEBIT: 16,
-    taxRateEst: [],
-    targetReturn: 0.15,
+    currentPrice: 220, targetPER: 50, targetEVFCF: 40,
+    targetEVEBITDA: 25, targetEVEBIT: 30,
+    taxRateEst: [], targetReturn: 0.15,
   };
 }
 
-describe("tikrCalculations – Capex de Mantenimiento", () => {
-  it("uses D&A absolute as the maintenance capex ceiling", () => {
-    const raw = makeRaw();
-    const result = calculateFullModel(raw, makeInputs());
-
-    result.hist.forEach((h, i) => {
-      const daAbs = [50, 55, 60][i];
-      const capexNeto = [-80, -90, -100][i] + (-10) + 5;
-      const expected = Math.abs(capexNeto) < daAbs ? capexNeto : -daAbs;
-      expect(h.capexMant).toBe(expected);
-    });
+describe("tikrCalculations – CapEx Mant uses Depreciation only (not Total D&A)", () => {
+  it("2016: |capexNeto| < deprec → uses capexNeto", () => {
+    // capexNeto = -7804, deprec = 7829 → |7804| < 7829 → capexMant = -7804
+    const result = calculateFullModel(makeRaw(), makeInputs());
+    expect(result.hist[0].capexMant).toBe(-7804);
   });
 
-  it("uses negative D&A when |capexNeto| is above D&A", () => {
-    const raw = makeRaw({
-      capex: [-200, -200, -200],
-      salePPE: [0, 0, 0],
-      saleIntangibles: [0, 0, 0],
-    });
-    const result = calculateFullModel(raw, makeInputs());
-
-    result.hist.forEach((h, i) => {
-      expect(h.capexMant).toBe(-[50, 55, 60][i]);
-    });
+  it("2017: |capexNeto| > deprec → cap at -deprec (NOT -totalDA)", () => {
+    // capexNeto = -11955, deprec = 11112, amortGW = 366, totalDA = 11478
+    // |11955| > 11112 → capexMant = -11112 (NOT -11478)
+    const result = calculateFullModel(makeRaw(), makeInputs());
+    expect(result.hist[1].capexMant).toBe(-11112);
   });
 
-  it("uses capexNeto when |capexNeto| is below D&A", () => {
-    const raw = makeRaw({
-      capex: [-30, -35, -40],
-      salePPE: [0, 0, 0],
-      saleIntangibles: [0, 0, 0],
-    });
-    const result = calculateFullModel(raw, makeInputs());
-
-    result.hist.forEach((h, i) => {
-      expect(h.capexMant).toBe([-30, -35, -40][i]);
-    });
+  it("2020: capexNeto with salePPE, capped at -deprec", () => {
+    // capexNeto = -40140 + 5096 = -35044, deprec = 24671
+    // |35044| > 24671 → capexMant = -24671
+    const result = calculateFullModel(makeRaw(), makeInputs());
+    expect(result.hist[2].capexMant).toBe(-24671);
   });
 });
