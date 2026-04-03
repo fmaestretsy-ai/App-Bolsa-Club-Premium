@@ -360,12 +360,26 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const divPaid2025 = cfVal("Common & Preferred Stock Dividends Paid", "Dividends Paid");
   const debtIssued2025 = cfVal("Total Debt Issued", "Debt Issued");
   const debtRepaid2025 = cfVal("Total Debt Repaid", "Debt Repaid");
-  const deprecCF2025 = cfVal("Depreciation", "Depreciation & Amortization");
-  const amortGW2025 = cfVal("Amortization of Goodwill", "Amortization of Goodwill and Intangible");
-  const ebtExcl2025 = cfVal("EBT Excl. Unusual Items", "EBT Excl Unusual");
-  const ebtIncl2025 = cfVal("EBT Incl. Unusual Items", "EBT Incl Unusual");
   const assetWD2025 = cfVal("Asset Writedown", "Restructuring Costs");
   const impGW2025 = cfVal("Impairment of Goodwill");
+
+  // ─── Read EBT Excl/Incl from IS LTM column (not CF) ───
+  const isSheet = findSheet(wb, "7.TIKR_IS", "TIKR_IS", "tikr_is");
+  let isLtmCol = -1;
+  for (let r = 0; r < Math.min(5, isSheet.length); r++) {
+    const row = isSheet[r];
+    if (!row) continue;
+    for (let c = 1; c < row.length; c++) {
+      if (typeof row[c] === "string" && (row[c] as string).toUpperCase() === "LTM") { isLtmCol = c; break; }
+    }
+    if (isLtmCol >= 0) break;
+  }
+  const isLtmVal = (...terms: string[]) => {
+    const row = findRow(isSheet, ...terms);
+    return row && isLtmCol >= 0 ? n(row[isLtmCol]) : 0;
+  };
+  const ebtExcl2025 = isLtmVal("EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
+  const ebtIncl2025 = isLtmVal("EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
 
   // Append to raw data
   raw.years.push(year2025);
@@ -395,8 +409,9 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.currentCapLeases.push(curLease2025);
   raw.ncCapLeases.push(ncLease2025);
   raw.totalEquity.push(equity2025);
-  raw.depreciation.push(deprecCF2025 || da2025);
-  raw.amortGoodwill.push(amortGW2025);
+  // Use total D&A from IS summary (da2025) to ensure reinvestment rate matches Excel
+  raw.depreciation.push(da2025);
+  raw.amortGoodwill.push(0);
   raw.capex.push(capex2025);
   raw.salePPE.push(salePPE2025);
   raw.saleIntangibles.push(saleIntang2025);

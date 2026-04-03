@@ -269,6 +269,18 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     ? Math.min(...histCashSecRatios)
     : s(lastCashPlusSec, last.sales);
 
+  // ─── Equity projection: retained earnings model ───
+  // Capital return ratio = median of (buybacks + dividends) / net income
+  const capitalReturnRatios = hist
+    .map(h => {
+      if (h.netIncome <= 0) return null;
+      const buyback = Math.abs(raw.repurchaseStock[hist.indexOf(h)] || 0);
+      const divPaid = Math.abs(raw.dividendsPaid[hist.indexOf(h)] || 0);
+      return (buyback + divPaid) / h.netIncome;
+    })
+    .filter((r): r is number => r != null && r >= 0 && r < 2 && isFinite(r));
+  const medianCapitalReturnRatio = capitalReturnRatios.length > 0 ? med(capitalReturnRatios) : 0;
+
   const proj: YC[] = [];
   let prevSales = inputs.lastSales;
   let prevDA = inputs.lastDA;
@@ -350,9 +362,11 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
     const nopat = ebit * (1 - projTaxRate);
 
-    // Projected equity & IC (simplified growth)
-    const equityGrowth = 1 + gr;
-    const projEquity = (j === 0 ? last.equity : proj[j - 1].equity) * equityGrowth + netIncome * 0.3;
+    // Projected equity: retained earnings model
+    // Equity = prevEquity + NetIncome × (1 - capitalReturnRatio)
+    const prevEquity = j === 0 ? last.equity : proj[j - 1].equity;
+    const retainedEarnings = netIncome * (1 - medianCapitalReturnRatio);
+    const projEquity = prevEquity + retainedEarnings;
     const curLeases = last.curLeases * (1 + gr) ** (j + 1);
     const ncLeases = last.ncLeases * (1 + gr) ** (j + 1);
     const ic = projEquity + projStDebt + projLtDebt + curLeases + ncLeases - projMktSec;
