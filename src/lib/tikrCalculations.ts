@@ -161,9 +161,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const saleIntang = sa(raw.saleIntangibles, i);
     const capexNeto = capexRaw + saleIntang + salePPE;
     const absDeprec = Math.abs(deprec);
-    const capexMant = Math.abs(capexNeto) < absDeprec
+    const capexMantBase = Math.abs(capexNeto) < absDeprec
       ? capexNeto
       : -absDeprec;
+    const capexMant = capexMantBase + saleIntang;
 
     // Step 4: FCF
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
@@ -212,8 +213,8 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const oui = Math.abs(sa(raw.otherUnusualItems, i));
     const unusualItems = mr + ls + aw + oui;
 
-    // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
-    const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - Math.abs(deprec + amortGW) + cwc) / nopat : 0;
+    const growthInvestment = Math.abs(capexExp + acq);
+    const reinvRate = fcf > 0 ? growthInvestment / fcf : 0;
 
     hist.push({
       year: raw.years[i], sales, ebitda, da, ebit,
