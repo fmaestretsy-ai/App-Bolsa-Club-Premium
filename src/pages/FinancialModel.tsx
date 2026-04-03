@@ -81,26 +81,11 @@ const fmt = (v: number | null | undefined, decimals = 0) => {
   if (decimals === 0) return Math.round(v).toLocaleString();
   return v.toFixed(decimals);
 };
-const fmtNeg = (v: number | null | undefined) => {
-  if (v == null || isNaN(v)) return <span>—</span>;
-  if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
-  return <span>{Math.round(v).toLocaleString()}</span>;
-};
-const pct = (v: number | null | undefined) => {
+// Projected value with red color for negatives
+const fmtP = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
-  return `${Math.round(v * 100)}%`;
-};
-const pctColor = (v: number | null | undefined) => {
-  if (v == null || isNaN(v)) return "";
-  return v >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400";
-};
-const fmtX = (v: number | null | undefined) => {
-  if (v == null || isNaN(v) || !isFinite(v)) return "—";
-  return v.toFixed(1) + "x";
-};
-const negClass = (v: number | null | undefined) => {
-  if (v != null && v < 0) return "text-red-500 dark:text-red-400";
-  return "";
+  if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
+  return Math.round(v).toLocaleString();
 };
 
 /* ─── Table shell ─── */
