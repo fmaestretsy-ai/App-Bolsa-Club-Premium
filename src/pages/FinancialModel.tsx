@@ -159,7 +159,7 @@ function Row({
       })}
       {medianVal !== undefined && (
         <td className="text-right p-1.5 text-xs bg-amber-50/20 dark:bg-amber-950/10 font-semibold">
-          {isMultiple ? fmtX(medianVal) : isPercent ? pct(medianVal) : fmt(medianVal, decimals)}
+          {isMultiple ? fmtX(medianVal) : isPercent ? pct(medianVal) : fmt(medianVal)}
         </td>
       )}
     </tr>
