@@ -214,9 +214,9 @@ export function calculateModel(
     const totalInterest = interestExpense + interestIncome;
 
     const ebt = ebit + totalInterest;
-    const taxExpense = -Math.abs(ebt * medianTaxRate);
+    const taxExpense = -Math.abs(ebt * taxRateYear);
     const consolidatedNetIncome = ebt + taxExpense;
-    const minorityInterests = 0;
+    const minorityInterests = consolidatedNetIncome * minorityPct;
     const netIncome = consolidatedNetIncome + minorityInterests;
 
     const shares = prevShares * (1 + shareGrowth);
