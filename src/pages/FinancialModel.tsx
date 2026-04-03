@@ -422,7 +422,6 @@ export default function FinancialModel() {
                 <Row label="Free Cash Flow" isBold isSeparator values={all("fcf")} projStart={N} />
                 <Row label="    FCF margin %" isSubRow isPercent projStart={N}
                   values={[...hist.map(h => s(h.fcf, h.sales)), ...proj.map(p => s(p.fcf, p.sales))]}
-                  medianVal={medians.fcfMargin}
                 />
                 <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
                   values={[...histGrowth("fcf"), ...proj.map((p, j) => {
