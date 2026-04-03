@@ -442,7 +442,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
   // ═══ Medians ═══
   // Exclude years with incomplete CF data (e.g. appended 2025 with capex=0)
-  const histWithCF = hist.filter((h, i) => !(raw.capex[i] === 0 && raw.repurchaseStock[i] === 0 && i === N - 1));
+  const histWithCF = hist.filter((h, i) => !(sa(raw.capex, i) === 0 && sa(raw.repurchaseStock, i) === 0 && i === N - 1));
   const medians: Record<string, number> = {
     per: medPositive(hist.map(h => h.per)),
     evFcf: medPositive(hist.map(h => h.evFcf)),
