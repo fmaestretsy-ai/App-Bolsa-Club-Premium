@@ -367,7 +367,7 @@ export default function FinancialModel() {
                 {/* D&A - negative */}
                 <Row label="Depreciation & Amortization"
                   histValues={getHist("da")}
-                  projValues={result.projected.map(p => fmt(p.da))}
+                  projValues={result.projected.map(p => fmtP(p.da))}
                 />
                 {/* EBIT */}
                 <Row label="EBIT" isBold
