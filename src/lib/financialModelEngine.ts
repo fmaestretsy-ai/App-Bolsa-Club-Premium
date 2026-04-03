@@ -228,9 +228,9 @@ export function calculateModel(
     const eps = netIncome / shares;
 
     // FCF
-    const capexSalesRatio = lastCapexSales; // Keep constant
+    const capexSalesRatio = inputs.capexSalesRatio[year] ?? lastCapexSales;
     const capexMaint = -capexSalesRatio * revenue;
-    const wc = inputs.wcSales * revenue;
+    const wc = (inputs.wcSales[year] ?? 0) * revenue;
     const wcChange = wc - prevWc;
     const fcf = ebitda + capexMaint + totalInterest + taxExpense - wcChange;
     const fcfps = fcf / shares;
