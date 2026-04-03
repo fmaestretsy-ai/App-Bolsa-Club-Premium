@@ -43,6 +43,10 @@ export interface HistoricalData {
   // FCF components
   capex: number | null;
   workingCapital: number | null;
+  inventories: number | null;
+  accountsReceivable: number | null;
+  accountsPayable: number | null;
+  unearnedRevenue: number | null;
   // Balance sheet
   totalDebt: number | null;
   cash: number | null;
