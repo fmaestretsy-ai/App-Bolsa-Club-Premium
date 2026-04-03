@@ -361,7 +361,7 @@ export default function FinancialModel() {
                   values={[
                     ...hist.map(h => h.taxRate),
                     ...pYears.map((_, j) => (
-                      <EditableCell key={j} value={inputs!.taxRateEst?.[j] || (model?.projTaxRate ?? 0.15)} format="percent"
+                      <EditableCell key={j} value={inputs!.taxRateEst?.[j] || (result?.projTaxRate ?? 0.15)} format="percent"
                         onChange={v => updateInput(p => {
                           const arr = [...(p.taxRateEst || [])]; arr[j] = v;
                           return { ...p, taxRateEst: arr };
