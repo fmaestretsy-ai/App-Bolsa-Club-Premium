@@ -2,11 +2,11 @@
  * Extracts raw financial data from TIKR Excel sheets (7-10)
  * and manual inputs from sheets 1.IS, 2.FCF, 4.Valoracion.
  *
- * Designed to be robust across different TIKR template variations:
+ * Robust across different TIKR template variations:
  *  - Flexible sheet name matching (fuzzy)
- *  - Label-based row search instead of fixed indices
- *  - Fallback search terms for TIKR row names
- *  - Handles Excel date serials, "LTM", and plain year numbers
+ *  - Label-based row search with fallback terms
+ *  - Skips TIKR "LTM" column; reads 2025 from summary sheets
+ *  - Handles Excel date serials, plain year numbers, and string years
  */
 import * as XLSX from "xlsx";
 
@@ -76,22 +76,15 @@ export interface TikrModelInputs {
 
 // ─── Helpers ───
 
-function toSheet(wb: XLSX.WorkBook, name: string): unknown[][] {
-  const s = wb.Sheets[name];
-  return s ? (XLSX.utils.sheet_to_json(s, { header: 1, defval: null }) as unknown[][]) : [];
-}
-
-/** Fuzzy find a sheet: matches if sheet name contains the key (case-insensitive) */
 function findSheet(wb: XLSX.WorkBook, ...keys: string[]): unknown[][] {
   for (const key of keys) {
-    const exact = wb.Sheets[key];
-    if (exact) return XLSX.utils.sheet_to_json(exact, { header: 1, defval: null }) as unknown[][];
+    const s = wb.Sheets[key];
+    if (s) return XLSX.utils.sheet_to_json(s, { header: 1, defval: null }) as unknown[][];
   }
-  const lower = keys.map(k => k.toLowerCase());
+  const lower = keys.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, ""));
   for (const name of wb.SheetNames) {
     const nl = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-    for (const k of lower) {
-      const kn = k.replace(/[^a-z0-9]/g, "");
+    for (const kn of lower) {
       if (nl.includes(kn) || nl === kn) {
         return XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: null }) as unknown[][];
       }
@@ -100,7 +93,6 @@ function findSheet(wb: XLSX.WorkBook, ...keys: string[]): unknown[][] {
   return [];
 }
 
-/** Find row by label: tries each term with startsWith, then includes as fallback */
 function findRow(data: unknown[][], ...terms: string[]): unknown[] | null {
   for (const term of terms) {
     const t = term.toLowerCase();
@@ -115,7 +107,6 @@ function findRow(data: unknown[][], ...terms: string[]): unknown[] | null {
   return null;
 }
 
-/** Find row index by label */
 function findRowIdx(data: unknown[][], ...terms: string[]): number {
   for (const term of terms) {
     const t = term.toLowerCase();
@@ -137,19 +128,24 @@ function n(v: unknown): number {
   return isNaN(p) ? 0 : p;
 }
 
-/** Convert Excel serial date number to year */
 function serialToYear(serial: number): number {
   const epoch = new Date(1899, 11, 30);
   const d = new Date(epoch.getTime() + serial * 86400000);
   return d.getFullYear();
 }
 
+/**
+ * Parse years from a header row, SKIPPING "LTM" columns.
+ * Only keeps fiscal year columns (date serials or plain year numbers).
+ */
 function parseYears(row: unknown[]): { years: number[]; cols: number[] } {
   const years: number[] = [], cols: number[] = [];
   if (!row) return { years, cols };
   for (let c = 1; c < row.length; c++) {
     const cell = row[c];
     if (cell == null) continue;
+    // Skip LTM
+    if (typeof cell === "string" && cell.toUpperCase() === "LTM") continue;
     if (typeof cell === "object" && cell !== null && typeof (cell as any).getFullYear === "function") {
       years.push((cell as Date).getFullYear());
       cols.push(c);
@@ -161,9 +157,6 @@ function parseYears(row: unknown[]): { years: number[]; cols: number[] } {
         years.push(cell);
         cols.push(c);
       }
-    } else if (String(cell).toUpperCase() === "LTM") {
-      years.push(years.length > 0 ? years[years.length - 1] + 1 : new Date().getFullYear());
-      cols.push(c);
     } else {
       const yr = parseInt(String(cell), 10);
       if (yr >= 1990 && yr <= 2060) {
@@ -206,7 +199,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
   const g = (sheet: unknown[][], h: { cols: number[] }, ...terms: string[]) =>
     vals(findRow(sheet, ...terms), h.cols);
 
-  return {
+  const raw: TikrRawData = {
     years: hdr.years,
     revenues: g(is, hdr, "Total Revenues", "Revenue", "Ventas"),
     operatingIncome: g(is, hdr, "Operating Income", "EBIT"),
@@ -250,20 +243,140 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     netCashChangeHist: g(cf, cfH, "Net Change in Cash", "Cambio neto en efectivo"),
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
   };
+
+  // ─── Append 2025 from summary sheets (replacing LTM) ───
+  append2025FromSummary(wb, raw);
+
+  return raw;
+}
+
+/**
+ * Read computed 2025 values from 1.IS, 2.FCF, 3.ROIC, 4.Valoracion
+ * and append them as the last entry in the TikrRawData arrays.
+ */
+function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
+  const is1 = findSheet(wb, "1.IS");
+  const fcf2 = findSheet(wb, "2.FCF");
+  const roic3 = findSheet(wb, "3.ROIC");
+  const val4 = findSheet(wb, "4.Valoracion", "4.Valoración");
+
+  if (is1.length < 10) return;
+
+  // Find the 2025 column in 1.IS (last historical year)
+  const headerRow = is1[1];
+  if (!headerRow) return;
+  let col2025 = -1;
+  for (let c = 1; c < headerRow.length; c++) {
+    const cell = headerRow[c];
+    if (cell === 2025 || String(cell) === "2025") { col2025 = c; break; }
+  }
+  if (col2025 < 0) return;
+
+  const lastHistYear = raw.years[raw.years.length - 1] || 2024;
+  const year2025 = lastHistYear + 1;
+
+  // Read key IS values
+  const salesRow = findRowIdx(is1, "sales", "ventas");
+  const daRow = findRowIdx(is1, "depreciation & amortization", "d&a");
+  const ebitRow = findRowIdx(is1, "ebit ");
+  const intExpRow = findRowIdx(is1, "interest expense");
+  const intIncRow = findRowIdx(is1, "interest income");
+  const taxRow = findRowIdx(is1, "tax expense", "impuesto");
+  const miRow = findRowIdx(is1, "minority interest");
+  const sharesRow = findRowIdx(is1, "fully diluted shares", "diluted shares");
+
+  const sales2025 = n(is1[salesRow >= 0 ? salesRow : 2]?.[col2025]);
+  const da2025 = Math.abs(n(is1[daRow >= 0 ? daRow : 7]?.[col2025]));
+  const ebit2025 = n(is1[ebitRow >= 0 ? ebitRow : 8]?.[col2025]);
+  const intExp2025 = n(is1[intExpRow >= 0 ? intExpRow : 11]?.[col2025]);
+  const intInc2025 = n(is1[intIncRow >= 0 ? intIncRow : 12]?.[col2025]);
+  const tax2025 = n(is1[taxRow >= 0 ? taxRow : 15]?.[col2025]);
+  const mi2025 = n(is1[miRow >= 0 ? miRow : 18]?.[col2025]);
+  const shares2025 = n(is1[sharesRow >= 0 ? sharesRow : 24]?.[col2025]);
+
+  // Read FCF-related values
+  const arRow = findRowIdx(fcf2, "accounts receivable");
+  const apRow = findRowIdx(fcf2, "accounts payable");
+  const invRow = findRowIdx(fcf2, "inventories", "+) inventories");
+  const urRow = findRowIdx(fcf2, "unearned revenue");
+  const ncRow = findRowIdx(fcf2, "net change in cash", "cambio neto");
+
+  const ar2025 = n(fcf2[arRow >= 0 ? arRow : 7]?.[col2025]);
+  const ap2025 = n(fcf2[apRow >= 0 ? apRow : 8]?.[col2025]);
+  const inv2025 = n(fcf2[invRow >= 0 ? invRow : 6]?.[col2025]);
+  const ur2025 = n(fcf2[urRow >= 0 ? urRow : 9]?.[col2025]);
+  const nc2025 = n(fcf2[ncRow >= 0 ? ncRow : 18]?.[col2025]);
+
+  // Read ROIC BS values
+  const cashRow3 = findRowIdx(roic3, "cash and cash equivalents", "efectivo");
+  const mktSecRow3 = findRowIdx(roic3, "marketable securities");
+  const stDebtRow3 = findRowIdx(roic3, "short-term debt");
+  const ltDebtRow3 = findRowIdx(roic3, "long-term debt");
+  const curLeaseRow3 = findRowIdx(roic3, "current operating lease", "current portion of capital lease");
+  const ncLeaseRow3 = findRowIdx(roic3, "non-current operating lease", "capital leases");
+  const equityRow3 = findRowIdx(roic3, "equity");
+
+  const cash2025 = n(roic3[cashRow3 >= 0 ? cashRow3 : 3]?.[col2025]);
+  const mktSec2025 = n(roic3[mktSecRow3 >= 0 ? mktSecRow3 : 4]?.[col2025]);
+  const stDebt2025 = n(roic3[stDebtRow3 >= 0 ? stDebtRow3 : 5]?.[col2025]);
+  const ltDebt2025 = n(roic3[ltDebtRow3 >= 0 ? ltDebtRow3 : 6]?.[col2025]);
+  const curLease2025 = n(roic3[curLeaseRow3 >= 0 ? curLeaseRow3 : 7]?.[col2025]);
+  const ncLease2025 = n(roic3[ncLeaseRow3 >= 0 ? ncLeaseRow3 : 8]?.[col2025]);
+  const equity2025 = n(roic3[equityRow3 >= 0 ? equityRow3 : 9]?.[col2025]);
+
+  // Read Market Cap from 4.Valoracion
+  const mktCapRow4 = findRowIdx(val4, "market cap");
+  const mktCap2025 = n(val4[mktCapRow4 >= 0 ? mktCapRow4 : 2]?.[col2025]);
+
+  // Append to raw data
+  raw.years.push(year2025);
+  raw.revenues.push(sales2025);
+  raw.operatingIncome.push(ebit2025);
+  raw.interestExpense.push(intExp2025);
+  raw.interestIncome.push(intInc2025);
+  raw.taxExpense.push(tax2025);
+  raw.minorityInterest.push(mi2025);
+  raw.dilutedShares.push(shares2025);
+  raw.basicShares.push(shares2025);
+  raw.assetWritedown.push(0);
+  raw.impairmentGoodwill.push(0);
+  raw.cashEquiv.push(cash2025);
+  raw.totalCashSTI.push(cash2025 + mktSec2025);
+  raw.inventory.push(inv2025);
+  raw.accountsReceivable.push(ar2025);
+  raw.accountsPayable.push(ap2025);
+  raw.unearnedRevCurrent.push(ur2025);
+  raw.unearnedRevNonCurrent.push(0);
+  raw.stBorrowings.push(0);
+  raw.currentLTD.push(stDebt2025);
+  raw.finDivDebtCurrent.push(0);
+  raw.ltBorrowings.push(0);
+  raw.ltDebt.push(ltDebt2025);
+  raw.finDivDebtNC.push(0);
+  raw.currentCapLeases.push(curLease2025);
+  raw.ncCapLeases.push(ncLease2025);
+  raw.totalEquity.push(equity2025);
+  raw.depreciation.push(da2025);
+  raw.amortGoodwill.push(0);
+  raw.capex.push(0);
+  raw.salePPE.push(0);
+  raw.saleIntangibles.push(0);
+  raw.cashAcquisitions.push(0);
+  raw.divestitures.push(0);
+  raw.sbc.push(0);
+  raw.issuanceStock.push(0);
+  raw.repurchaseStock.push(0);
+  raw.dividendsPaid.push(0);
+  raw.debtIssued.push(0);
+  raw.debtRepaid.push(0);
+  raw.netCashChangeHist.push(nc2025);
+  raw.marketCapMM.push(mktCap2025);
 }
 
 // ─── Manual inputs extraction (label-based) ───
 
-/**
- * Finds the projected columns: columns after the last historical year.
- * In sheet 1.IS, row 1 has years. Historical years are in cols ~1-10,
- * projected cols follow (typically 5 years).
- */
 function findProjectedCols(headerRow: unknown[]): { lastHistCol: number; projCols: number[] } {
   const projCols: number[] = [];
-  let lastHistCol = 0;
-
-  // Parse all year-like values to find historical vs projected boundary
   const yearCols: { col: number; year: number }[] = [];
   for (let c = 1; c < headerRow.length; c++) {
     const cell = headerRow[c];
@@ -278,13 +391,9 @@ function findProjectedCols(headerRow: unknown[]): { lastHistCol: number; projCol
     }
     if (yr > 0) yearCols.push({ col: c, year: yr });
   }
-
   if (yearCols.length === 0) return { lastHistCol: 10, projCols: [11, 12, 13, 14, 15] };
-
-  // The last historical col is the last one before values jump to future / or
-  // we detect a gap. For our templates, projected years follow sequentially.
-  // Use heuristic: the last 5 consecutive years at the end are projected.
   const totalYears = yearCols.length;
+  let lastHistCol: number;
   if (totalYears > 5) {
     lastHistCol = yearCols[totalYears - 6].col;
     projCols.push(...yearCols.slice(totalYears - 5).map(yc => yc.col));
@@ -292,7 +401,6 @@ function findProjectedCols(headerRow: unknown[]): { lastHistCol: number; projCol
     lastHistCol = yearCols[0].col;
     projCols.push(...yearCols.slice(1).map(yc => yc.col));
   }
-
   return { lastHistCol, projCols };
 }
 
@@ -302,7 +410,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const val = findSheet(wb, "4.Valoracion", "4.Valoración");
   if (is.length < 10) return null;
 
-  // Find header row (the one with years, typically row 1)
   let headerRowIdx = -1;
   for (let r = 0; r < Math.min(5, is.length); r++) {
     const row = is[r];
@@ -314,10 +421,8 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     if (hasYear) { headerRowIdx = r; break; }
   }
   if (headerRowIdx < 0) headerRowIdx = 1;
-
   const { lastHistCol, projCols } = findProjectedCols(is[headerRowIdx] || []);
 
-  // Find rows by label in 1.IS
   const salesRow = findRowIdx(is, "sales", "ventas", "total revenues");
   const growthRow = salesRow >= 0 && salesRow + 1 < is.length ? salesRow + 1 : -1;
   const daRow = findRowIdx(is, "depreciation & amortization", "d&a", "deprec");
@@ -326,24 +431,19 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const sharesRow = findRowIdx(is, "fully diluted shares", "diluted shares", "acciones diluidas");
   const shareGrowthRow = sharesRow >= 0 && sharesRow + 1 < is.length ? sharesRow + 1 : -1;
 
-  // Extract values
-  const lastSales = n(is[salesRow]?.[lastHistCol]);
+  const lastSales = n(is[salesRow >= 0 ? salesRow : 2]?.[lastHistCol]);
   const lastDA = n(is[daRow >= 0 ? daRow : 7]?.[lastHistCol]);
   const lastShares = n(is[sharesRow >= 0 ? sharesRow : 24]?.[lastHistCol]);
-
   const growthRates = projCols.map(c => n(is[growthRow >= 0 ? growthRow : 3]?.[c]));
   const ebitMarginEst = projCols.map(c => n(is[ebitMarginRow >= 0 ? ebitMarginRow : 9]?.[c]));
   const shareDilutionRate = n(is[shareGrowthRow >= 0 ? shareGrowthRow : 25]?.[projCols[0]]);
 
-  // Find rows by label in 2.FCF
   const capexSalesRow = findRowIdx(fcf, "capex mantenimiento / ventas", "capex mant", "maintenance capex / sales");
   const wcSalesRow = findRowIdx(fcf, "working capital / ventas", "wc / ventas", "wc / sales");
   const netCashRow = findRowIdx(fcf, "net change in cash", "cambio neto en efectivo", "net cash change");
 
-  // For FCF, find its own header and projected columns
   let fcfProjCols = projCols;
   if (fcf.length > 0) {
-    let fcfHeaderIdx = -1;
     for (let r = 0; r < Math.min(5, fcf.length); r++) {
       const row = fcf[r];
       if (!row) continue;
@@ -351,11 +451,10 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
         if (typeof cell === "number") return (cell >= 2000 && cell <= 2060) || (cell > 30000 && cell < 60000);
         return false;
       });
-      if (hasYear) { fcfHeaderIdx = r; break; }
-    }
-    if (fcfHeaderIdx >= 0) {
-      const fcfLayout = findProjectedCols(fcf[fcfHeaderIdx]);
-      fcfProjCols = fcfLayout.projCols;
+      if (hasYear) {
+        fcfProjCols = findProjectedCols(fcf[r]).projCols;
+        break;
+      }
     }
   }
 
@@ -363,11 +462,9 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const wcToSalesEst = n(fcf[wcSalesRow >= 0 ? wcSalesRow : 22]?.[fcfProjCols[0]]);
   const netCashChange = fcfProjCols.map(c => n(fcf[netCashRow >= 0 ? netCashRow : 18]?.[c]));
 
-  // Find rows by label in 4.Valoracion
   const priceRow = findRowIdx(val, "precio por acción actual", "current price", "precio actual");
   const targetReturnRow = findRowIdx(val, "retorno anual objetivo", "target return", "rendimiento objetivo");
 
-  // Target multiples: look for "Múltiplos de valoración" section with "Objetivo" in col 1
   let targetMultiplesStart = -1;
   for (let r = 0; r < val.length; r++) {
     const label = String(val[r]?.[0] || "").toLowerCase();
@@ -377,7 +474,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
       break;
     }
   }
-  // If not found with "Objetivo", try the second "Múltiplos" section
   if (targetMultiplesStart < 0) {
     let count = 0;
     for (let r = 0; r < val.length; r++) {
@@ -390,7 +486,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
 
   let targetPER = 20, targetEVFCF = 20, targetEVEBITDA = 15, targetEVEBIT = 15;
   if (targetMultiplesStart >= 0) {
-    // Scan rows after the header for PER, EV/FCF, EV/EBITDA, EV/EBIT
     for (let r = targetMultiplesStart + 1; r < Math.min(targetMultiplesStart + 6, val.length); r++) {
       const label = String(val[r]?.[0] || "").toLowerCase().trim();
       const v = n(val[r]?.[1]);
@@ -401,10 +496,8 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     }
   }
 
-  // Net debt / EBITDA from 4.Valoracion
   let valProjCols = projCols;
   if (val.length > 0) {
-    let valHeaderIdx = -1;
     for (let r = 0; r < Math.min(5, val.length); r++) {
       const row = val[r];
       if (!row) continue;
@@ -412,11 +505,10 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
         if (typeof cell === "number") return (cell >= 2000 && cell <= 2060) || (cell > 30000 && cell < 60000);
         return false;
       });
-      if (hasYear) { valHeaderIdx = r; break; }
-    }
-    if (valHeaderIdx >= 0) {
-      const vl = findProjectedCols(val[valHeaderIdx]);
-      valProjCols = vl.projCols;
+      if (hasYear) {
+        valProjCols = findProjectedCols(val[r]).projCols;
+        break;
+      }
     }
   }
   const ndEbitdaRow = findRowIdx(val, "deuda neta / ebitda", "net debt / ebitda", "nd/ebitda");

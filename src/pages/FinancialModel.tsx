@@ -69,15 +69,11 @@ function EditableCell({
 }
 
 /* ─── Format helpers ─── */
-const fmt = (v: number | null | undefined, decimals = 0) => {
+const fmt = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
   if (!isFinite(v)) return "—";
-  if (v < 0) {
-    const abs = decimals === 0 ? Math.round(Math.abs(v)).toLocaleString() : Math.abs(v).toFixed(decimals);
-    return `(${abs})`;
-  }
-  if (decimals === 0) return Math.round(v).toLocaleString();
-  return v.toFixed(decimals);
+  if (v < 0) return `(${Math.round(Math.abs(v)).toLocaleString()})`;
+  return Math.round(v).toLocaleString();
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v) || !isFinite(v)) return "—";
@@ -127,7 +123,7 @@ function ModelTable({
 }
 
 function Row({
-  label, values, isPercent = false, isBold = false, isSubRow = false, isSeparator = false, decimals = 0,
+  label, values, isPercent = false, isBold = false, isSubRow = false, isSeparator = false,
   projStart = 0, medianVal, isMultiple = false, renderCell,
 }: {
   label: string;
@@ -136,7 +132,6 @@ function Row({
   isBold?: boolean;
   isSubRow?: boolean;
   isSeparator?: boolean;
-  decimals?: number;
   projStart?: number;
   medianVal?: number | null;
   isMultiple?: boolean;
@@ -154,7 +149,7 @@ function Row({
         const num = v as number | null | undefined;
         const isNeg = num != null && typeof num === "number" && num < 0;
         const cl = isPercent ? pctC(num) : isNeg ? "text-red-500 dark:text-red-400" : "";
-        const display = isMultiple ? fmtX(num) : isPercent ? pct(num) : fmt(num, decimals);
+        const display = isMultiple ? fmtX(num) : isPercent ? pct(num) : fmt(num);
         return (
           <td key={i} className={`text-right p-1.5 text-xs ${cl} ${i >= projStart ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
             {display}
@@ -163,7 +158,7 @@ function Row({
       })}
       {medianVal !== undefined && (
         <td className="text-right p-1.5 text-xs bg-amber-50/20 dark:bg-amber-950/10 font-semibold">
-          {isMultiple ? fmtX(medianVal) : isPercent ? pct(medianVal) : fmt(medianVal, decimals)}
+          {isMultiple ? fmtX(medianVal) : isPercent ? pct(medianVal) : fmt(medianVal)}
         </td>
       )}
     </tr>
@@ -373,7 +368,7 @@ export default function FinancialModel() {
                     return prev ? (p.netIncome - prev) / Math.abs(prev) : null;
                   })]}
                 />
-                <Row label="EPS" values={all("eps")} projStart={N} decimals={2} />
+                <Row label="EPS" values={all("eps")} projStart={N} />
                 <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
                   values={[...histGrowth("eps"), ...proj.map((p, j) => {
                     const prev = j === 0 ? hist[N - 1]?.eps : proj[j - 1]?.eps;
@@ -411,7 +406,7 @@ export default function FinancialModel() {
                   values={[...hist.map(h => s(h.fcf, h.sales)), ...proj.map(p => s(p.fcf, p.sales))]}
                   medianVal={medians.fcfMargin}
                 />
-                <Row label="FCFPS" values={all("fcfps")} projStart={N} decimals={2} />
+                <Row label="FCFPS" values={all("fcfps")} projStart={N} />
                 <Row label="Net Change in Cash" values={all("netCashChange")} projStart={N} />
 
                 <SectionHeader label="Eficiencia" colSpan={totalCols} />
@@ -471,7 +466,7 @@ export default function FinancialModel() {
               <ModelTable histYears={hYears} projYears={pYears} showMedian subtitle="Valoración (millones)">
                 <Row label="Market Cap" isBold values={all("mktCap")} projStart={N} />
                 <Row label="Deuda Neta" values={all("netDebt")} projStart={N} medianVal={null} />
-                <Row label="    Deuda / EBITDA" isSubRow values={[...hist.map(h => s(h.netDebt, h.ebitda)), ...proj.map(p => s(p.netDebt, p.ebitda))]} projStart={N} decimals={1} medianVal={medians.netDebtToEBITDA} />
+                <Row label="    Deuda / EBITDA" isSubRow isMultiple values={[...hist.map(h => s(h.netDebt, h.ebitda)), ...proj.map(p => s(p.netDebt, p.ebitda))]} projStart={N} medianVal={medians.netDebtToEBITDA} />
                 <Row label="Enterprise Value" isBold values={all("ev")} projStart={N} />
                 <Row label="EBITDA" values={all("ebitda")} projStart={N} />
                 <Row label="EBIT" values={all("ebit")} projStart={N} />
