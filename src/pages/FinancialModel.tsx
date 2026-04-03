@@ -366,7 +366,11 @@ export default function FinancialModel() {
                   })}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.ebitMargin[y] ?? 0.30} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, ebitMargin: { ...prev.ebitMargin, [y]: v } }))}
+                      onChange={v => updateInput(prev => {
+                        const updated: Record<number, number> = {};
+                        pYears.forEach(yr => { updated[yr] = v; });
+                        return { ...prev, ebitMargin: updated };
+                      })}
                     />
                   ))}
                 />
