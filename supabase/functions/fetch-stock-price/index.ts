@@ -128,9 +128,36 @@ function extractDs1Data(html: string): GoogleFinanceSummary {
   };
 }
 
-async function fetchFromGoogleFinance(ticker: string): Promise<StockData> {
-  const exchanges = ["NASDAQ", "NYSE", "EPA", "BIT", "TSE", "AMS", "SWX", "TPE"];
+const EXCHANGE_BY_CURRENCY: Record<string, string[]> = {
+  EUR: ["AMS", "EPA", "BIT", "ETR", "FRA"],
+  GBP: ["LON"],
+  CHF: ["SWX"],
+  JPY: ["TYO", "TSE"],
+  SEK: ["STO"],
+  NOK: ["OSL"],
+  DKK: ["CPH"],
+  CAD: ["TSX", "CVE"],
+  AUD: ["ASX"],
+  HKD: ["HKG"],
+  KRW: ["KRX"],
+  TWD: ["TPE"],
+  INR: ["NSE", "BOM"],
+  BRL: ["BVMF"],
+  MXN: ["BMV"],
+};
+
+async function fetchFromGoogleFinance(ticker: string, currency?: string): Promise<StockData> {
+  const defaultExchanges = ["NASDAQ", "NYSE", "EPA", "BIT", "TSE", "AMS", "SWX", "TPE"];
   const cleanTicker = ticker.includes(":") ? ticker : null;
+
+  let exchanges: string[];
+  if (cleanTicker) {
+    exchanges = [];
+  } else if (currency && currency !== "USD" && EXCHANGE_BY_CURRENCY[currency]) {
+    exchanges = [...EXCHANGE_BY_CURRENCY[currency], ...defaultExchanges.filter(e => !EXCHANGE_BY_CURRENCY[currency].includes(e))];
+  } else {
+    exchanges = defaultExchanges;
+  }
 
   const urls = cleanTicker
     ? [`https://www.google.com/finance/quote/${cleanTicker}`]
