@@ -392,9 +392,8 @@ export default function FinancialModel() {
                 <Row label="Total Interest expense"
                   histValues={hYears.map(y => {
                     const h = historical.find(h => h.fiscalYear === y);
-                    const ie = h?.interestExpense ?? 0;
-                    const ii = h?.interestIncome ?? 0;
-                    return (ie !== 0 || ii !== 0) ? ie + ii : null;
+                    if (!h) return null;
+                    return (h.interestExpense ?? 0) + (h.interestIncome ?? 0);
                   })}
                   projValues={result.projected.map(p => fmt(p.totalInterest))}
                 />
