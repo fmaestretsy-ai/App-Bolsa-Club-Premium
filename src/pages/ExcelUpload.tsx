@@ -104,6 +104,7 @@ export default function ExcelUpload() {
           companyId = existingCompany.id;
           await supabase.from("companies").update({
             sector: parsed.sector || undefined,
+            currency: parsed.currency ?? undefined,
             target_price_5y: parsed.targetPrice5y,
             price_for_15_return: parsed.priceFor15Return,
             estimated_annual_return: parsed.estimatedAnnualReturn,
