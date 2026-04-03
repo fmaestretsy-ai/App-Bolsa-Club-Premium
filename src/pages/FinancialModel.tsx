@@ -654,16 +654,15 @@ export default function FinancialModel() {
           {/* ═══════════════ 6. GRÁFICOS ═══════════════ */}
           <TabsContent value="charts">
             <Card className="p-4 space-y-8">
-              <h2 className="text-sm font-semibold text-foreground">Evolución histórica</h2>
+              <h2 className="text-sm font-semibold text-foreground">Evolución histórica y proyecciones</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Sales + Growth */}
+                {/* 1. Sales + Growth */}
                 <div>
                   <h3 className="text-xs font-medium text-muted-foreground mb-2">Ventas y Crecimiento</h3>
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={[...hist, ...proj].map((h, i) => ({
                       year: h.year, sales: Math.round(h.sales),
                       growth: i > 0 ? ((h.sales - [...hist, ...proj][i - 1].sales) / Math.abs([...hist, ...proj][i - 1].sales)) * 100 : null,
-                      isProj: i >= N,
                     }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="year" tick={{ fontSize: 10 }} />
@@ -676,7 +675,29 @@ export default function FinancialModel() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Margins */}
+                {/* 2. EBITDA, EBIT, Net Income (absolute values) */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">EBITDA, EBIT y Beneficio Neto</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={[...hist, ...proj].map(h => ({
+                      year: h.year,
+                      ebitda: Math.round(h.ebitda),
+                      ebit: Math.round(h.ebit),
+                      ni: Math.round(h.netIncome),
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(v / 1000)}k`} />
+                      <Tooltip formatter={(v: number) => Math.round(v).toLocaleString()} />
+                      <Legend wrapperStyle={{ fontSize: 10 }} />
+                      <Bar dataKey="ebitda" name="EBITDA" fill="#2563eb" />
+                      <Bar dataKey="ebit" name="EBIT" fill="#16a34a" />
+                      <Bar dataKey="ni" name="Net Income" fill="#9333ea" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 3. Margins */}
                 <div>
                   <h3 className="text-xs font-medium text-muted-foreground mb-2">Márgenes (%)</h3>
                   <ResponsiveContainer width="100%" height={280}>
@@ -692,17 +713,17 @@ export default function FinancialModel() {
                       <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(0)}%`} />
                       <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
                       <Legend wrapperStyle={{ fontSize: 10 }} />
-                      <Line dataKey="ebitda" name="EBITDA" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
-                      <Line dataKey="ebit" name="EBIT" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} />
-                      <Line dataKey="net" name="Net Income" stroke="#9333ea" strokeWidth={2} dot={{ r: 2 }} />
-                      <Line dataKey="fcf" name="FCF" stroke="#ea580c" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="ebitda" name="EBITDA %" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="ebit" name="EBIT %" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="net" name="Net Income %" stroke="#9333ea" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="fcf" name="FCF %" stroke="#ea580c" strokeWidth={2} dot={{ r: 2 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* EPS */}
+                {/* 4. EPS */}
                 <div>
-                  <h3 className="text-xs font-medium text-muted-foreground mb-2">EPS</h3>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">Beneficio por Acción (EPS)</h3>
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={[...hist, ...proj].map(h => ({ year: h.year, eps: h.eps }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -714,9 +735,9 @@ export default function FinancialModel() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* FCF per share */}
+                {/* 5. FCF per share */}
                 <div>
-                  <h3 className="text-xs font-medium text-muted-foreground mb-2">FCF por acción</h3>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">FCF por Acción</h3>
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={[...hist, ...proj].map(h => ({ year: h.year, fcfps: h.fcfps }))}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -728,7 +749,7 @@ export default function FinancialModel() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* ROIC & ROE */}
+                {/* 6. ROIC & ROE */}
                 <div>
                   <h3 className="text-xs font-medium text-muted-foreground mb-2">ROIC & ROE (%)</h3>
                   <ResponsiveContainer width="100%" height={280}>
@@ -744,7 +765,24 @@ export default function FinancialModel() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Valuation Multiples */}
+                {/* 7. Net Debt / EBITDA */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">Deuda Neta / EBITDA</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={[...hist, ...proj].map(h => ({
+                      year: h.year,
+                      ratio: s(h.netDebt, h.ebitda),
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(1)}x`} />
+                      <Tooltip formatter={(v: number) => `${v.toFixed(2)}x`} />
+                      <Bar dataKey="ratio" name="DN/EBITDA" fill="#64748b" opacity={0.7} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 8. Valuation Multiples */}
                 <div>
                   <h3 className="text-xs font-medium text-muted-foreground mb-2">Múltiplos de Valoración</h3>
                   <ResponsiveContainer width="100%" height={280}>
@@ -766,7 +804,7 @@ export default function FinancialModel() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Capital Allocation */}
+                {/* 9. Capital Allocation (full width) */}
                 <div className="lg:col-span-2">
                   <h3 className="text-xs font-medium text-muted-foreground mb-2">Asignación de Capital (% FCF)</h3>
                   <ResponsiveContainer width="100%" height={280}>
