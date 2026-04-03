@@ -414,10 +414,12 @@ export default function FinancialModel() {
                   projValues={result.projected.map(p => fmt(p.taxExpense))}
                 />
                 {/* Tax Rate - ORANGE */}
-                <Row label="    Tax rate %" isSubRow isPercent
+                <Row label="    Tax rate %" isSubRow
                   histValues={getHist("taxRate")}
-                  projValues={result.projected.map(p => (
-                    <span className="text-orange-600 dark:text-orange-400 font-semibold">{`${Math.round(p.taxRate * 100)}%`}</span>
+                  projValues={pYears.map(y => (
+                    <EditableCell key={y} value={modelInputs.taxRate} format="percent"
+                      onChange={v => updateInput(prev => ({ ...prev, taxRate: v }))}
+                    />
                   ))}
                 />
                 {/* Consolidated Net Income */}
