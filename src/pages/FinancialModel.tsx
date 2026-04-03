@@ -831,7 +831,7 @@ export default function FinancialModel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Precio compra para ese retorno:</span>
-                  <span className="font-semibold text-foreground">${fmt(result.priceFor15Return, 2)}</span>
+                  <span className="font-semibold text-foreground">${fmt(result.priceFor15Return)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Diferencia vs precio actual:</span>
