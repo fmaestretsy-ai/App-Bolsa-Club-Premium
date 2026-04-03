@@ -442,8 +442,8 @@ export default function FinancialModel() {
                 <Row label="    Tax rate %" isSubRow
                   histValues={getHist("taxRate")}
                   projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.taxRate} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, taxRate: v }))}
+                    <EditableCell key={y} value={modelInputs.taxRate[y] ?? 0.14} format="percent"
+                      onChange={v => updatePerYear('taxRate', y, v)}
                     />
                   ))}
                 />
