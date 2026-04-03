@@ -91,4 +91,62 @@ describe("tikrCalculations – CapEx Mant uses Depreciation only (not Total D&A)
     const result = calculateFullModel(makeRaw(), makeInputs());
     expect(result.hist[2].capexMant).toBe(-24671);
   });
+
+  it("includes intangible purchases in maintenance CapEx and uses growth investment over FCF for reinvestment", () => {
+    const result = calculateFullModel(
+      makeRaw({
+        years: [2024, 2025],
+        revenues: [28262.9, 32470],
+        operatingIncome: [9022.6, 10950],
+        interestExpense: [-162.6, -162.6],
+        interestIncome: [182.4, 242.1],
+        taxExpense: [-1680.6, -2117.5],
+        minorityInterest: [0, 0],
+        dilutedShares: [393.6, 392],
+        basicShares: [393.6, 392],
+        depreciation: [787.3, 841.6],
+        amortGoodwill: [51.5, 51.5],
+        capex: [-2067.2, -1948.7],
+        salePPE: [0, 0],
+        saleIntangibles: [-15.9, -18],
+        cashAcquisitions: [0, 0],
+        divestitures: [0, 0],
+        sbc: [172.6, 195.3],
+        issuanceStock: [0, 0],
+        repurchaseStock: [0, 0],
+        dividendsPaid: [0, 0],
+        debtIssued: [0, 0],
+        debtRepaid: [0, 0],
+        netCashChangeHist: [5731.2, 2429.9],
+        cashEquiv: [12735.9, 12916],
+        totalCashSTI: [12750.6, 13322],
+        inventory: [10891.5, 12485.788790251532],
+        accountsReceivable: [4880.7, 4079.1],
+        accountsPayable: [3500.4, 4012.785666014457],
+        unearnedRevCurrent: [18196.2, 20859.744753723076],
+        unearnedRevNonCurrent: [0, 0],
+        stBorrowings: [1051.9, 0],
+        currentLTD: [0, 0],
+        finDivDebtCurrent: [0, 0],
+        ltBorrowings: [3706.6, 2709],
+        ltDebt: [0, 0],
+        finDivDebtNC: [0, 0],
+        currentCapLeases: [68.6, 80],
+        ncCapLeases: [237.4, 280],
+        totalEquity: [18476.8, 19612.2],
+        assetWritedown: [0, 0],
+        impairmentGoodwill: [0, 0],
+        mergerRestructuring: [0, 0],
+        legalSettlements: [0, 0],
+        otherUnusualItems: [0, 0],
+        marketCapMM: [266951.5791914569, 328104.4002552649],
+      }),
+      makeInputs(),
+    );
+
+    expect(result.hist[1].capexMant).toBeCloseTo(-859.6, 6);
+    expect(result.hist[1].fcf).toBeCloseTo(11328.741629486007, 6);
+    expect(result.hist[1].roic).toBeCloseTo(0.39720239629262394, 10);
+    expect(result.hist[1].reinvRate).toBeCloseTo(0.09772488738894734, 10);
+  });
 });

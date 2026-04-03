@@ -112,6 +112,19 @@ function findRow(data: unknown[][], ...terms: string[]): unknown[] | null {
   return null;
 }
 
+function normalizeLabel(value: unknown): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findExactLabelRow(data: unknown[][], ...labels: string[]): unknown[] | null {
+  const wanted = labels.map(normalizeLabel);
+  return data.find((row) => wanted.includes(normalizeLabel(row?.[0]))) ?? null;
+}
+
 function findRowIdx(data: unknown[][], ...terms: string[]): number {
   for (const term of terms) {
     const t = term.toLowerCase();
@@ -195,6 +208,36 @@ function findSaleIntangiblesValues(sheet: unknown[][], cols: number[]): number[]
   return vals(row, cols);
 }
 
+function findDepreciationValues(sheet: unknown[][], cols: number[]): number[] {
+  const row =
+    findExactLabelRow(sheet, "Depreciation", "Depreciation*", "Depreciación") ??
+    sheet.find((r) => {
+      const label = normalizeLabel(r?.[0]);
+      return label.startsWith("depreciation") && !label.includes("amort");
+    }) ??
+    findRow(sheet, "Depreciation", "Depreciación");
+
+  return vals(row, cols);
+}
+
+function findAmortizationValues(sheet: unknown[][], cols: number[]): number[] {
+  const row =
+    findExactLabelRow(
+      sheet,
+      "Amortization of Goodwill and Intangible Assets",
+      "Amortization of Goodwill",
+      "Amortización fondo de comercio",
+    ) ??
+    findRow(
+      sheet,
+      "Amortization of Goodwill and Intangible Assets",
+      "Amortization of Goodwill",
+      "Amortización fondo de comercio",
+    );
+
+  return vals(row, cols);
+}
+
 // ─── Currency detection ───
 
 const CURRENCY_CODES = "USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS|ILS|RUB|NZD|THB|IDR|PHP|MYR|VND|CZK|HUF|RON";
@@ -269,8 +312,8 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     currentCapLeases: g(bs, bsH, "Current Portion of Capital Lease", "Current Operating Lease", "Arrendamientos corriente"),
     ncCapLeases: g(bs, bsH, "Capital Leases", "Operating Lease Liabilities", "Arrendamientos no corriente"),
     totalEquity: g(bs, bsH, "Total Equity", "Total Stockholders Equity", "Patrimonio total"),
-    depreciation: g(cf, cfH, "Depreciation", "Depreciación"),
-    amortGoodwill: g(cf, cfH, "Amortization of Goodwill", "Amortización fondo de comercio"),
+    depreciation: findDepreciationValues(cf, cfH.cols),
+    amortGoodwill: findAmortizationValues(cf, cfH.cols),
     capex: g(cf, cfH, "Capital Expenditure", "CapEx", "Inversión en capital"),
     salePPE: g(cf, cfH, "Sale of Property, Plant, and Equipment", "Sale of PPE", "Venta de PPE"),
     saleIntangibles: findSaleIntangiblesValues(cf, cfH.cols),
@@ -337,7 +380,6 @@ function appendLTMFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const sharesRow = findRowIdx(is1, "fully diluted shares", "diluted shares");
 
   const sales2025 = n(is1[salesRow >= 0 ? salesRow : 2]?.[col2025]);
-  const da2025 = Math.abs(n(is1[daRow >= 0 ? daRow : 7]?.[col2025]));
   const ebit2025 = n(is1[ebitRow >= 0 ? ebitRow : 8]?.[col2025]);
   const intExp2025 = n(is1[intExpRow >= 0 ? intExpRow : 11]?.[col2025]);
   const intInc2025 = n(is1[intIncRow >= 0 ? intIncRow : 12]?.[col2025]);
@@ -396,7 +438,17 @@ function appendLTMFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
     return row && ltmCol >= 0 ? n(row[ltmCol]) : 0;
   };
 
+  const cfExactVal = (...terms: string[]) => {
+    const row = findExactLabelRow(cfSheet, ...terms);
+    return row && ltmCol >= 0 ? n(row[ltmCol]) : 0;
+  };
+
   const capex2025 = cfVal("Capital Expenditure", "CapEx");
+  const depreciation2025 = cfExactVal("Depreciation", "Depreciation*");
+  const amortGoodwill2025 = cfExactVal(
+    "Amortization of Goodwill and Intangible Assets",
+    "Amortization of Goodwill",
+  );
   const salePPE2025 = cfVal("Sale of Property, Plant, and Equipment", "Sale of PPE");
   const saleIntang2025 = cfVal("Sale (Purchase) of Intangible", "Intangible assets");
   const acq2025 = cfVal("Cash Acquisitions", "Acquisitions");
@@ -457,9 +509,8 @@ function appendLTMFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.currentCapLeases.push(curLease2025);
   raw.ncCapLeases.push(ncLease2025);
   raw.totalEquity.push(equity2025);
-  // Use total D&A from IS summary (da2025) to ensure reinvestment rate matches Excel
-  raw.depreciation.push(da2025);
-  raw.amortGoodwill.push(0);
+  raw.depreciation.push(depreciation2025);
+  raw.amortGoodwill.push(amortGoodwill2025);
   raw.capex.push(capex2025);
   raw.salePPE.push(salePPE2025);
   raw.saleIntangibles.push(saleIntang2025);
