@@ -349,7 +349,8 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const totalInt = intExp + intInc;
 
     const ebt = ebit + totalInt;
-    const tax = -(ebt * projTaxRate);
+    const yearTaxRate = getProjTaxRate(j);
+    const tax = -(ebt * yearTaxRate);
     const consolNI = ebt + tax;
     const mi = miRatio * consolNI;
     const netIncome = consolNI + mi;
