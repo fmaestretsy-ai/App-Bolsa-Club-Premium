@@ -371,18 +371,38 @@ export function extractModelInputs(
   const defaultGrowths: Record<number, number> = {};
   const defaultMargins: Record<number, number> = {};
   const defaultNdEbitda: Record<number, number> = {};
+  const defaultTaxRate: Record<number, number> = {};
+  const defaultShareGrowth: Record<number, number> = {};
+  const defaultMinorityPct: Record<number, number> = {};
 
   projectionYears.forEach((y, i) => {
     defaultGrowths[y] = 0.10 - i * 0.01;
     defaultMargins[y] = 0.30;
     defaultNdEbitda[y] = 0.30;
+    defaultTaxRate[y] = 0.14;
+    defaultShareGrowth[y] = -0.02;
+    defaultMinorityPct[y] = 0;
   });
+
+  // Handle legacy single-value tax_rate → convert to per-year
+  let taxRateMap = cp.tax_rate;
+  if (typeof taxRateMap === 'number') {
+    taxRateMap = {};
+    projectionYears.forEach(y => { taxRateMap[y] = cp.tax_rate; });
+  }
+  // Handle legacy shareGrowthFirst → convert to per-year
+  let shareGrowthMap = cp.share_growth;
+  if (!shareGrowthMap && cp.share_growth_first != null) {
+    shareGrowthMap = {};
+    projectionYears.forEach(y => { shareGrowthMap[y] = cp.share_growth_first; });
+  }
 
   return {
     revenueGrowth: cp.revenue_growth || defaultGrowths,
     ebitMargin: cp.ebit_margin || defaultMargins,
-    taxRate: cp.tax_rate ?? 0.14,
-    shareGrowthFirst: cp.share_growth_first ?? -0.02,
+    taxRate: taxRateMap || defaultTaxRate,
+    shareGrowth: shareGrowthMap || defaultShareGrowth,
+    minorityInterestsPct: cp.minority_interests_pct || defaultMinorityPct,
     wcSales: cp.wc_sales ?? 0,
     netDebtEbitda: cp.net_debt_ebitda || defaultNdEbitda,
     currentPrice: assumptions?.current_price ?? 0,
