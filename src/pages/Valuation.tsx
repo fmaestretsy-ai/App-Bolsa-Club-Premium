@@ -412,7 +412,7 @@ export default function Valuation() {
                       <TableCell className="sticky left-0 bg-card z-10 font-semibold text-foreground">Promedio</TableCell>
                       {targetPrices.map(tp => (
                         <TableCell key={tp.year} className="text-right font-mono text-sm font-semibold text-foreground">
-                          {tp.average != null ? `$${Math.round(tp.average)}` : "—"}
+                          {tp.average != null ? `${cs}${Math.round(tp.average)}` : "—"}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-mono text-sm font-semibold">
