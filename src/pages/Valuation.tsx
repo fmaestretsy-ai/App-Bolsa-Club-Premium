@@ -180,9 +180,11 @@ export default function Valuation() {
     return n.toFixed(decimals);
   };
 
+  const cs = getCurrencySymbol(company?.currency);
+
   const fmtPrice = (n: number | null | undefined) => {
     if (n == null) return "—";
-    return `$${n.toFixed(2)}`;
+    return `${cs}${n.toFixed(2)}`;
   };
 
   const pct = (n: number | null | undefined) => {
