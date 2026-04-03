@@ -798,7 +798,7 @@ export default function FinancialModel() {
                           <td className="p-2 text-foreground">{label}</td>
                           {result.targetPrices.map(tp => (
                             <td key={tp.year} className="text-right p-2 text-foreground">
-                              {fmt(tp[field], 2)}
+                              {fmt(tp[field])}
                             </td>
                           ))}
                           <td className={`text-right p-2 font-semibold ${pctColor(result.cagr5y[cagrKey])}`}>
