@@ -417,7 +417,7 @@ export default function FinancialModel() {
                 <Row label="    Tax rate %" isSubRow isPercent
                   histValues={getHist("taxRate")}
                   projValues={result.projected.map(p => (
-                    <span className="text-orange-600 dark:text-orange-400 font-semibold">{pct(p.taxRate)}</span>
+                    <span className="text-orange-600 dark:text-orange-400 font-semibold">{`${Math.round(p.taxRate * 100)}%`}</span>
                   ))}
                 />
                 {/* Consolidated Net Income */}
