@@ -387,7 +387,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
     proj.push({
       year: projYear, sales, ebitda, da, ebit,
-      intExp, intInc, totalInt, ebt, tax, taxRate: projTaxRate,
+      intExp, intInc, totalInt, ebt, tax, taxRate: yearTaxRate,
       consolNI, mi, netIncome, eps, shares,
       capexMant, wc, cwc, fcf, fcfps,
       netCashChange: inputs.netCashChange[j] ?? 0,

@@ -575,6 +575,13 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const ndEbitdaRow = findRowIdx(val, "deuda neta / ebitda", "net debt / ebitda", "nd/ebitda");
   const netDebtToEBITDA = valProjCols.map(c => n(val[ndEbitdaRow >= 0 ? ndEbitdaRow : 4]?.[c]));
 
+  // Extract projected tax rates from IS sheet
+  const taxRateRow = findRowIdx(is, "tax rate", "tasa impositiva");
+  const taxRateEst = projCols.map(c => {
+    if (taxRateRow >= 0) return n(is[taxRateRow]?.[c]);
+    return 0; // will be filled by engine median
+  });
+
   return {
     lastSales,
     lastDA,
@@ -586,6 +593,7 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     wcToSalesEst,
     netCashChange,
     netDebtToEBITDA,
+    taxRateEst,
     currentPrice: n(val[priceRow >= 0 ? priceRow : 18]?.[1]),
     targetPER,
     targetEVFCF,
