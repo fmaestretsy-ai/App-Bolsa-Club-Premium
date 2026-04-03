@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useCompanies, useFinancialPeriods, useProjectionYears } from "@/hooks/useCompanyData";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function Projection() {
   const { t } = useTranslation();
