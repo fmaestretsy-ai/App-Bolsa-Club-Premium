@@ -638,17 +638,26 @@ export default function FinancialModel() {
                 {/* (-) Taxes paid */}
                 <Row label="(-) Taxes paid"
                   histValues={getHist("taxExpense")}
-                  projValues={result.projected.map(p => fmtP(p.taxExpense))}
+                  projValues={result.projected.map(p => {
+                    const excelTax = getProjectedExcelValue(p.year, "taxExpense");
+                    return fmtP(excelTax ?? p.taxExpense);
+                  })}
                 />
                 {/* Inventories */}
                 <Row label="Inventories"
                   histValues={getHist("inventories")}
-                  projValues={result.projected.map(() => "—")}
+                  projValues={result.projected.map(p => {
+                    const v = getProjectedExcelValue(p.year, "inventories");
+                    return v != null ? fmt(v) : "—";
+                  })}
                 />
                 {/* Accounts Receivable */}
                 <Row label="Accounts Receivable"
                   histValues={getHist("accountsReceivable")}
-                  projValues={result.projected.map(() => "—")}
+                  projValues={result.projected.map(p => {
+                    const v = getProjectedExcelValue(p.year, "accountsReceivable");
+                    return v != null ? fmt(v) : "—";
+                  })}
                 />
                 {/* (-) Accounts Payable */}
                 <Row label="(-) Accounts Payable"
@@ -656,7 +665,10 @@ export default function FinancialModel() {
                     const h = historical.find(h => h.fiscalYear === y);
                     return h?.accountsPayable != null ? -Math.abs(h.accountsPayable) : null;
                   })}
-                  projValues={result.projected.map(() => "—")}
+                  projValues={result.projected.map(p => {
+                    const v = getProjectedExcelValue(p.year, "accountsPayable");
+                    return v != null ? fmtP(-Math.abs(v)) : "—";
+                  })}
                 />
                 {/* (-) Unearned Revenue */}
                 <Row label="(-) Unearned Revenue"
@@ -664,7 +676,10 @@ export default function FinancialModel() {
                     const h = historical.find(h => h.fiscalYear === y);
                     return h?.unearnedRevenue != null ? -Math.abs(h.unearnedRevenue) : null;
                   })}
-                  projValues={result.projected.map(() => "—")}
+                  projValues={result.projected.map(p => {
+                    const v = getProjectedExcelValue(p.year, "unearnedRevenue");
+                    return v != null ? fmtP(-Math.abs(v)) : "—";
+                  })}
                 />
                 {/* Working Capital total */}
                 <Row label="Working Capital - WC" isBold
