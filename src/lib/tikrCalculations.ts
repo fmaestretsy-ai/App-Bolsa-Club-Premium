@@ -202,6 +202,9 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     // Step 9: Red flags
     const aw = Math.abs(raw.assetWritedown[i] || 0);
     const ig = Math.abs(raw.impairmentGoodwill[i] || 0);
+    const ebtExcl = raw.ebtExclUnusual[i] || 0;
+    const ebtIncl = raw.ebtInclUnusual[i] || 0;
+    const unusualItems = Math.abs(ebtExcl - ebtIncl);
 
     // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
     const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - (deprec + amortGW) + cwc) / nopat : 0;
