@@ -364,7 +364,7 @@ export default function FinancialModel() {
                   histValues={histGrowth("ebitda")}
                   projValues={result.projected.map(p => <span className={pctColor(p.ebitdaGrowth)}>{pct(p.ebitdaGrowth)}</span>)}
                 />
-                {/* D&A */}
+                {/* D&A - negative */}
                 <Row label="Depreciation & Amortization"
                   histValues={getHist("da")}
                   projValues={result.projected.map(p => fmt(p.da))}
