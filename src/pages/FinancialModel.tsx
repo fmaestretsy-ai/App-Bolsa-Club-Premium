@@ -716,7 +716,10 @@ export default function FinancialModel() {
                 {/* FCF */}
                 <Row label="Free Cash Flow" isBold isSeparator
                   histValues={getHist("fcf")}
-                  projValues={result.projected.map(p => fmt(p.fcf))}
+                  projValues={result.projected.map(p => {
+                    const excelFcf = getProjectedExcelValue(p.year, "fcf");
+                    return fmt(excelFcf ?? p.fcf);
+                  })}
                 />
                 <Row label="FCF Margin %" isSubRow isPercent
                   histValues={hYears.map(y => {
