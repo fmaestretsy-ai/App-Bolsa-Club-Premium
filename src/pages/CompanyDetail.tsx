@@ -164,7 +164,7 @@ export default function CompanyDetail() {
             ) : (
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-xl font-bold text-card-foreground">
-                  {company.current_price ? `$${Number(company.current_price).toFixed(2)}` : "—"}
+                  {company.current_price ? `${cs}${Number(company.current_price).toFixed(2)}` : "—"}
                 </p>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPriceInput(String(company.current_price || "")); setEditingPrice(true); }}>
                   <Pencil className="h-3 w-3 text-muted-foreground" />
