@@ -413,11 +413,33 @@ export default function FinancialModel() {
 
                 <SectionHeader label="Eficiencia" colSpan={totalCols} />
                 <Row label="CapEx Mant. / Ventas" isPercent projStart={N}
-                  values={[...hist.map(h => s(Math.abs(h.capexMant), h.sales)), ...proj.map(p => s(Math.abs(p.capexMant), p.sales))]}
+                  values={[
+                    ...hist.map(h => s(Math.abs(h.capexMant), h.sales)),
+                    ...pYears.map((_, j) => (
+                      <EditableCell key={j} value={inputs!.capexMantToSales[j] ?? inputs!.capexMantToSales[0] ?? 0} format="percent"
+                        onChange={v => updateInput(p => {
+                          const arr = [...p.capexMantToSales]; arr[j] = v;
+                          for (let k = j + 1; k < 5; k++) arr[k] = v;
+                          return { ...p, capexMantToSales: arr };
+                        })}
+                      />
+                    )),
+                  ]}
                   medianVal={medians.capexMantToSales}
                 />
                 <Row label="WC / Ventas" isPercent projStart={N}
-                  values={[...hist.map(h => s(h.wc, h.sales)), ...proj.map(p => s(p.wc, p.sales))]}
+                  values={[
+                    ...hist.map(h => s(h.wc, h.sales)),
+                    ...pYears.map((_, j) => (
+                      <EditableCell key={j} value={inputs!.wcToSalesEst[j] ?? inputs!.wcToSalesEst[0] ?? 0} format="percent"
+                        onChange={v => updateInput(p => {
+                          const arr = [...p.wcToSalesEst]; arr[j] = v;
+                          for (let k = j + 1; k < 5; k++) arr[k] = v;
+                          return { ...p, wcToSalesEst: arr };
+                        })}
+                      />
+                    )),
+                  ]}
                   medianVal={medians.wcToSales}
                 />
                 <Row label="FCF / Ventas" isPercent projStart={N}
