@@ -120,22 +120,22 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
   // ═══ STEPS 1-9: Historical ═══
   for (let i = 0; i < N; i++) {
-    const sales = raw.revenues[i];
-    const ebit = raw.operatingIncome[i];
-    const deprec = raw.depreciation[i] || 0;
-    const amortGW = raw.amortGoodwill[i] || 0;
+    const sales = sa(raw.revenues, i);
+    const ebit = sa(raw.operatingIncome, i);
+    const deprec = sa(raw.depreciation, i);
+    const amortGW = sa(raw.amortGoodwill, i);
     const da = -(deprec + amortGW);
     const ebitda = ebit - da;
-    const intExp = raw.interestExpense[i];
-    const intInc = raw.interestIncome[i];
+    const intExp = sa(raw.interestExpense, i);
+    const intInc = sa(raw.interestIncome, i);
     const totalInt = intExp + intInc;
     const ebt = ebit + totalInt;
-    const tax = raw.taxExpense[i];
+    const tax = sa(raw.taxExpense, i);
     const taxRate = ebt !== 0 ? Math.abs(tax) / ebt : 0;
     const consolNI = ebt + tax;
-    const mi = raw.minorityInterest[i];
+    const mi = sa(raw.minorityInterest, i);
     const netIncome = consolNI + mi;
-    const shares = raw.dilutedShares[i] || 1;
+    const shares = sa(raw.dilutedShares, i) || 1;
     const eps = netIncome / shares;
 
     // Step 2: WC
