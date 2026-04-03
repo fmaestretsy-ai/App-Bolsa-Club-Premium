@@ -69,15 +69,11 @@ function EditableCell({
 }
 
 /* ─── Format helpers ─── */
-const fmt = (v: number | null | undefined, decimals = 0) => {
+const fmt = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
   if (!isFinite(v)) return "—";
-  if (v < 0) {
-    const abs = decimals === 0 ? Math.round(Math.abs(v)).toLocaleString() : Math.abs(v).toFixed(decimals);
-    return `(${abs})`;
-  }
-  if (decimals === 0) return Math.round(v).toLocaleString();
-  return v.toFixed(decimals);
+  if (v < 0) return `(${Math.round(Math.abs(v)).toLocaleString()})`;
+  return Math.round(v).toLocaleString();
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v) || !isFinite(v)) return "—";
