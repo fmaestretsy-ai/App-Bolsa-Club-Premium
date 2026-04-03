@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { detectCurrency } from "./tikrExtractor";
 
 export interface ProjectionTarget {
   year: number;
