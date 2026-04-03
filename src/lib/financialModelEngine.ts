@@ -471,7 +471,7 @@ export function periodsToHistorical(periods: any[]): HistoricalData[] {
       accountsReceivable: p.accounts_receivable ?? null,
       accountsPayable: p.accounts_payable ?? null,
       unearnedRevenue: p.unearned_revenue ?? null,
-      workingCapital: null, // will be computed below
+      workingCapital: ((p.inventories ?? 0) + (p.accounts_receivable ?? 0) - (p.accounts_payable ?? 0) - (p.unearned_revenue ?? 0)) || null,
       totalDebt: p.total_debt,
       cash: p.cash,
       netDebt: p.net_debt,
