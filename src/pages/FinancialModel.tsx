@@ -13,6 +13,7 @@ import { Calculator } from "lucide-react";
 import * as XLSX from "xlsx";
 import { extractTikrData, extractManualInputs, type TikrModelInputs } from "@/lib/tikrExtractor";
 import { calculateFullModel, type FullModelResult, type YC } from "@/lib/tikrCalculations";
+import { Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from "recharts";
 
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
@@ -291,12 +292,13 @@ export default function FinancialModel() {
         </p>
 
         <Tabs defaultValue="is" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="is">1. IS</TabsTrigger>
             <TabsTrigger value="fcf">2. FCF</TabsTrigger>
             <TabsTrigger value="roic">3. ROIC</TabsTrigger>
             <TabsTrigger value="val">4. Valoración</TabsTrigger>
             <TabsTrigger value="rf">5. Red Flags</TabsTrigger>
+            <TabsTrigger value="charts">6. Gráficos</TabsTrigger>
           </TabsList>
 
           {/* ═══════════════ 1. INCOME STATEMENT ═══════════════ */}
@@ -567,28 +569,205 @@ export default function FinancialModel() {
           {/* ═══════════════ 5. RED FLAGS ═══════════════ */}
           <TabsContent value="rf">
             <Card className="p-4 space-y-6">
-              <ModelTable histYears={hYears} projYears={[]} subtitle="Red Flags (% ventas)">
-                <Row label="Impairments" isPercent values={hv("impPct")} projStart={N} />
-                <Row label="SBC" isPercent values={hv("sbcPct")} projStart={N} />
-                <Row label="Divestitures" isPercent values={hv("divstPct")} projStart={N} />
-                <Row label="Emisión acciones" isPercent values={hv("issuancePct")} projStart={N} />
-              </ModelTable>
-
-              <div className="border-t border-border pt-4">
-                <h3 className="text-sm font-semibold text-foreground mb-3">Contadores de alertas</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+              {/* Section 1: Red Flags as % of sales */}
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Posibles "Red Flags" (1)</h3>
+                <ModelTable histYears={hYears} projYears={[]} subtitle="Como % de ventas...">
                   {([
-                    ["Ventas decrecientes", redFlagCounts.salesDecline],
-                    ["Margen decreciente", redFlagCounts.marginDecline],
-                    ["FCF negativo", redFlagCounts.negativeFCF],
-                    ["ROIC < 10%", redFlagCounts.poorROIC],
-                    ["Deuda/EBITDA > 2.5x", redFlagCounts.highDebt],
-                  ] as [string, number][]).map(([label, count]) => (
-                    <div key={label} className={`p-3 rounded-lg border ${count > 0 ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30" : "border-border bg-muted/20"}`}>
-                      <div className={`text-lg font-bold ${count > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>{count}</div>
-                      <div className="text-muted-foreground">{label}</div>
-                    </div>
+                    ["Impairments", "impPct"],
+                    ["Desinversiones", "divstPct"],
+                    ["Pagos en acciones", "sbcPct"],
+                    ["Emisión de acciones", "issuancePct"],
+                    ["Cargos \"extraordinarios\"", "extraPct"],
+                  ] as [string, keyof YC][]).map(([label, field]) => (
+                    <tr key={field} className="border-b border-border/30">
+                      <td className="p-1.5 sticky left-0 bg-card z-10 text-foreground text-xs">{label}</td>
+                      {hist.map((h, i) => {
+                        const v = h[field] as number;
+                        const isBad = field === "sbcPct" ? v > 0.05 : v > 0.01;
+                        return (
+                          <td key={i} className={`text-right p-1.5 text-xs ${isBad ? "text-red-500 dark:text-red-400 font-semibold" : ""}`}>
+                            {pct(v)}
+                          </td>
+                        );
+                      })}
+                    </tr>
                   ))}
+                </ModelTable>
+              </div>
+
+              {/* Section 2: Red Flags counts */}
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Posibles "Red Flags" (2)</h3>
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-border bg-muted/50">
+                      <th className="text-left p-2 min-w-[250px] text-muted-foreground font-medium">
+                        # de años con...
+                      </th>
+                      <th className="text-right p-2 min-w-[80px] text-muted-foreground font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {([
+                      ["Decrecimiento de ventas", redFlagCounts.salesDecline],
+                      ["Decrecimiento de margen operativo", redFlagCounts.marginDecline],
+                      ["FCF negativo", redFlagCounts.negativeFCF],
+                      ["ROIC \"Pobre\" (<10%)", redFlagCounts.poorROIC],
+                      ["Ratio Deuda Neta / EBITDA elevado (>2,5x)", redFlagCounts.highDebt],
+                    ] as [string, number][]).map(([label, count]) => (
+                      <tr key={label} className="border-b border-border/30">
+                        <td className="p-2 text-foreground text-xs">{label}</td>
+                        <td className={`text-right p-2 text-xs font-semibold ${count > 0 ? "text-red-500 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                          {count}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ═══════════════ 6. GRÁFICOS ═══════════════ */}
+          <TabsContent value="charts">
+            <Card className="p-4 space-y-8">
+              <h2 className="text-sm font-semibold text-foreground">Evolución histórica</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Sales + Growth */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">Ventas y Crecimiento</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={[...hist, ...proj].map((h, i) => ({
+                      year: h.year, sales: Math.round(h.sales),
+                      growth: i > 0 ? ((h.sales - [...hist, ...proj][i - 1].sales) / Math.abs([...hist, ...proj][i - 1].sales)) * 100 : null,
+                      isProj: i >= N,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 10 }} tickFormatter={v => `${Math.round(v / 1000)}k`} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(0)}%`} />
+                      <Tooltip formatter={(v: number, name: string) => [name === "growth" ? `${v.toFixed(1)}%` : Math.round(v).toLocaleString(), name === "growth" ? "Crecimiento" : "Ventas"]} />
+                      <Bar yAxisId="left" dataKey="sales" fill="hsl(var(--primary))" opacity={0.7} />
+                      <Line yAxisId="right" dataKey="growth" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 3 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Margins */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">Márgenes (%)</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={[...hist, ...proj].map(h => ({
+                      year: h.year,
+                      ebitda: s(h.ebitda, h.sales) * 100,
+                      ebit: s(h.ebit, h.sales) * 100,
+                      net: s(h.netIncome, h.sales) * 100,
+                      fcf: s(h.fcf, h.sales) * 100,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(0)}%`} />
+                      <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                      <Legend wrapperStyle={{ fontSize: 10 }} />
+                      <Line dataKey="ebitda" name="EBITDA" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="ebit" name="EBIT" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="net" name="Net Income" stroke="#9333ea" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line dataKey="fcf" name="FCF" stroke="#ea580c" strokeWidth={2} dot={{ r: 2 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* EPS */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">EPS</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={[...hist, ...proj].map(h => ({ year: h.year, eps: h.eps }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                      <Bar dataKey="eps" name="EPS" fill="#2563eb" opacity={0.7} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* FCF per share */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">FCF por acción</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={[...hist, ...proj].map(h => ({ year: h.year, fcfps: h.fcfps }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => `$${v.toFixed(2)}`} />
+                      <Bar dataKey="fcfps" name="FCF/Share" fill="#16a34a" opacity={0.7} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* ROIC & ROE */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">ROIC & ROE (%)</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={[...hist, ...proj].map(h => ({ year: h.year, roic: h.roic * 100, roe: h.roe * 100 }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(0)}%`} />
+                      <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                      <Legend wrapperStyle={{ fontSize: 10 }} />
+                      <Line dataKey="roic" name="ROIC" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line dataKey="roe" name="ROE" stroke="#ea580c" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Valuation Multiples */}
+                <div>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">Múltiplos de Valoración</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={hist.map(h => ({
+                      year: h.year,
+                      per: h.per > 0 && h.per < 100 ? h.per : null,
+                      evFcf: h.evFcf > 0 && h.evFcf < 100 ? h.evFcf : null,
+                      evEbitda: h.evEbitda > 0 && h.evEbitda < 100 ? h.evEbitda : null,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(0)}x`} />
+                      <Tooltip formatter={(v: number) => `${v.toFixed(1)}x`} />
+                      <Legend wrapperStyle={{ fontSize: 10 }} />
+                      <Line dataKey="per" name="PER" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line dataKey="evFcf" name="EV/FCF" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line dataKey="evEbitda" name="EV/EBITDA" stroke="#9333ea" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Capital Allocation */}
+                <div className="lg:col-span-2">
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">Asignación de Capital (% FCF)</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <ComposedChart data={hist.map(h => ({
+                      year: h.year,
+                      capex: h.capexExpPct * 100,
+                      acq: h.acqPct * 100,
+                      div: h.divPct * 100,
+                      buyback: h.buybackPct * 100,
+                      debtRepay: h.debtRepayPct * 100,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(0)}%`} />
+                      <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                      <Legend wrapperStyle={{ fontSize: 10 }} />
+                      <Bar dataKey="capex" name="CapEx Exp." fill="#2563eb" stackId="a" />
+                      <Bar dataKey="acq" name="Adquisiciones" fill="#16a34a" stackId="a" />
+                      <Bar dataKey="div" name="Dividendos" fill="#9333ea" stackId="a" />
+                      <Bar dataKey="buyback" name="Recompra" fill="#ea580c" stackId="a" />
+                      <Bar dataKey="debtRepay" name="Pago deuda" fill="#64748b" stackId="a" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             </Card>
