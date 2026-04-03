@@ -413,11 +413,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
   const summaryData = extractSummaryData(wb);
 
   // Detect currency from TIKR sheets or summary headers
-  let detectedCurrency: string | null = null;
-  try {
-    const { detectCurrency } = require("./tikrExtractor");
-    detectedCurrency = detectCurrency(wb);
-  } catch { /* ignore */ }
+  let detectedCurrency: string | null = detectCurrency(wb);
   if (!detectedCurrency) {
     // Fallback: scan first rows of summary sheets
     const CURRENCY_CODES = "USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS";
