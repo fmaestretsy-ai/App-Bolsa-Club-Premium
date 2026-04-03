@@ -76,6 +76,9 @@ export interface ParsedPeriod {
   netIncomeGrowth: number | null;
   fcfGrowth: number | null;
   dividendPerShare: number | null;
+  interestExpense: number | null;
+  interestIncome: number | null;
+  taxExpense: number | null;
   isProjection: boolean;
 }
 
@@ -103,6 +106,9 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^Deuda Neta$|^Net Debt$/i, "netDebt"],
   [/^Dividend[s]?\s*(per\s*share)?$|^DPS$/i, "dividendPerShare"],
   [/^Book Value per Share|^BVPS$/i, "bvps"],
+  [/^Interest Expense/i, "interestExpense"],
+  [/^Interest Income/i, "interestIncome"],
+  [/^Tax Expense/i, "taxExpense"],
 ];
 
 const GROWTH_CONTEXT: Record<string, keyof ParsedPeriod> = {
@@ -432,6 +438,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
           peRatio: null, evEbitda: null, pFcf: null,
           revenueGrowth: null, netIncomeGrowth: null, fcfGrowth: null,
           dividendPerShare: null,
+          interestExpense: null, interestIncome: null, taxExpense: null,
           isProjection: yearInfo!.projectionStart != null && year >= yearInfo!.projectionStart,
         });
       }

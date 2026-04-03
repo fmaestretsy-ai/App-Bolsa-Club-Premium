@@ -397,11 +397,15 @@ export function periodsToHistorical(periods: any[]): HistoricalData[] {
   return periods.map(p => {
     const ebit = p.ebit as number | null;
     const netIncome = p.net_income as number | null;
-    // Derive tax expense: Tax = Net Income - EBIT (negative value, since tax reduces income)
-    // This assumes interest ≈ 0 when not available; EBT ≈ EBIT
-    const taxExpense = ebit != null && netIncome != null ? netIncome - ebit : null;
-    const taxRate = ebit != null && netIncome != null && ebit !== 0
-      ? 1 - (netIncome / ebit) : null;
+    // Use DB columns if available, otherwise derive
+    const interestExpense = p.interest_expense as number | null;
+    const interestIncome = p.interest_income as number | null;
+    const taxExpense = p.tax_expense as number | null;
+    // Tax rate from actual data
+    const totalInterest = (interestExpense ?? 0) + (interestIncome ?? 0);
+    const ebt = ebit != null ? ebit + totalInterest : null;
+    const taxRate = ebt != null && taxExpense != null && ebt !== 0
+      ? Math.abs(taxExpense) / ebt : (ebit != null && netIncome != null && ebit !== 0 ? 1 - (netIncome / ebit) : null);
 
     return {
       fiscalYear: p.fiscal_year,
@@ -412,8 +416,8 @@ export function periodsToHistorical(periods: any[]): HistoricalData[] {
       fcf: p.fcf,
       dilutedShares: p.diluted_shares,
       da: p.ebitda && ebit ? -(p.ebitda - ebit) : null,
-      interestExpense: 0,
-      interestIncome: 0,
+      interestExpense,
+      interestIncome,
       taxExpense,
       taxRate,
       minorityInterests: null,

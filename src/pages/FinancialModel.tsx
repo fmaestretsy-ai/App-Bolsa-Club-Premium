@@ -74,8 +74,18 @@ function EditableCell({
 /* ─── Format helpers ─── */
 const fmt = (v: number | null | undefined, decimals = 0) => {
   if (v == null || isNaN(v)) return "—";
+  if (v < 0) {
+    const abs = decimals === 0 ? Math.round(Math.abs(v)).toLocaleString() : Math.abs(v).toFixed(decimals);
+    return `(${abs})`;
+  }
   if (decimals === 0) return Math.round(v).toLocaleString();
   return v.toFixed(decimals);
+};
+// Projected value with red color for negatives
+const fmtP = (v: number | null | undefined) => {
+  if (v == null || isNaN(v)) return "—";
+  if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
+  return Math.round(v).toLocaleString();
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
@@ -137,11 +147,15 @@ function Row({
       <td className={`p-1.5 sticky left-0 bg-card z-10 ${isSubRow ? "pl-6 text-muted-foreground italic" : "text-foreground"} text-xs`}>
         {label}
       </td>
-      {histValues.map((v, i) => (
-        <td key={i} className={`text-right p-1.5 text-xs ${isPercent ? pctColor(v as number) : "text-foreground"}`}>
-          {isPercent ? pct(v as number) : fmt(v as number)}
-        </td>
-      ))}
+      {histValues.map((v, i) => {
+        const val = v as number;
+        const isNeg = val != null && !isNaN(val) && val < 0;
+        return (
+          <td key={i} className={`text-right p-1.5 text-xs ${isPercent ? pctColor(val) : isNeg ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
+            {isPercent ? pct(val) : fmt(val)}
+          </td>
+        );
+      })}
       {projValues.map((v, i) => (
         <td key={`p${i}`} className="text-right p-1.5 text-xs bg-blue-50/20 dark:bg-blue-950/10">
           {v}
@@ -350,10 +364,10 @@ export default function FinancialModel() {
                   histValues={histGrowth("ebitda")}
                   projValues={result.projected.map(p => <span className={pctColor(p.ebitdaGrowth)}>{pct(p.ebitdaGrowth)}</span>)}
                 />
-                {/* D&A */}
+                {/* D&A - negative */}
                 <Row label="Depreciation & Amortization"
                   histValues={getHist("da")}
-                  projValues={result.projected.map(p => fmt(p.da))}
+                  projValues={result.projected.map(p => fmtP(p.da))}
                 />
                 {/* EBIT */}
                 <Row label="EBIT" isBold
@@ -382,7 +396,7 @@ export default function FinancialModel() {
                 {/* Interest Expense */}
                 <Row label="Interest Expense"
                   histValues={getHist("interestExpense")}
-                  projValues={result.projected.map(p => fmt(p.interestExpense))}
+                  projValues={result.projected.map(p => fmtP(p.interestExpense))}
                 />
                 {/* Interest Income */}
                 <Row label="Interest Income"
@@ -396,7 +410,7 @@ export default function FinancialModel() {
                     if (!h) return null;
                     return (h.interestExpense ?? 0) + (h.interestIncome ?? 0);
                   })}
-                  projValues={result.projected.map(p => fmt(p.totalInterest))}
+                  projValues={result.projected.map(p => fmtP(p.totalInterest))}
                 />
                 {/* EBT */}
                 <Row label="EBT" isBold
@@ -411,7 +425,7 @@ export default function FinancialModel() {
                 {/* Tax Expense */}
                 <Row label="Tax Expense - en negativo"
                   histValues={getHist("taxExpense")}
-                  projValues={result.projected.map(p => fmt(p.taxExpense))}
+                  projValues={result.projected.map(p => fmtP(p.taxExpense))}
                 />
                 {/* Tax Rate - ORANGE */}
                 <Row label="    Tax rate %" isSubRow

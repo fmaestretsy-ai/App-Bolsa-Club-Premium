@@ -288,6 +288,8 @@ export type Database = {
           fcf_per_share: number | null
           fiscal_year: number
           id: string
+          interest_expense: number | null
+          interest_income: number | null
           margin_ebitda: number | null
           margin_fcf: number | null
           margin_net: number | null
@@ -300,6 +302,7 @@ export type Database = {
           revenue_growth: number | null
           roe: number | null
           roic: number | null
+          tax_expense: number | null
           total_debt: number | null
           updated_at: string
           upload_id: string | null
@@ -322,6 +325,8 @@ export type Database = {
           fcf_per_share?: number | null
           fiscal_year: number
           id?: string
+          interest_expense?: number | null
+          interest_income?: number | null
           margin_ebitda?: number | null
           margin_fcf?: number | null
           margin_net?: number | null
@@ -334,6 +339,7 @@ export type Database = {
           revenue_growth?: number | null
           roe?: number | null
           roic?: number | null
+          tax_expense?: number | null
           total_debt?: number | null
           updated_at?: string
           upload_id?: string | null
@@ -356,6 +362,8 @@ export type Database = {
           fcf_per_share?: number | null
           fiscal_year?: number
           id?: string
+          interest_expense?: number | null
+          interest_income?: number | null
           margin_ebitda?: number | null
           margin_fcf?: number | null
           margin_net?: number | null
@@ -368,6 +376,7 @@ export type Database = {
           revenue_growth?: number | null
           roe?: number | null
           roic?: number | null
+          tax_expense?: number | null
           total_debt?: number | null
           updated_at?: string
           upload_id?: string | null
