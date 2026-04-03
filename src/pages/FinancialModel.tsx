@@ -466,7 +466,7 @@ export default function FinancialModel() {
               <ModelTable histYears={hYears} projYears={pYears} showMedian subtitle="Valoración (millones)">
                 <Row label="Market Cap" isBold values={all("mktCap")} projStart={N} />
                 <Row label="Deuda Neta" values={all("netDebt")} projStart={N} medianVal={null} />
-                <Row label="    Deuda / EBITDA" isSubRow values={[...hist.map(h => s(h.netDebt, h.ebitda)), ...proj.map(p => s(p.netDebt, p.ebitda))]} projStart={N} decimals={1} medianVal={medians.netDebtToEBITDA} />
+                <Row label="    Deuda / EBITDA" isSubRow isMultiple values={[...hist.map(h => s(h.netDebt, h.ebitda)), ...proj.map(p => s(p.netDebt, p.ebitda))]} projStart={N} medianVal={medians.netDebtToEBITDA} />
                 <Row label="Enterprise Value" isBold values={all("ev")} projStart={N} />
                 <Row label="EBITDA" values={all("ebitda")} projStart={N} />
                 <Row label="EBIT" values={all("ebit")} projStart={N} />
