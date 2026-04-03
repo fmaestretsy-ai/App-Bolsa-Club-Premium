@@ -107,7 +107,7 @@ export default function Projection() {
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">{t("projection.targetPrice")} {firstProj?.year}</p>
                 <p className="text-xl font-bold text-foreground mt-1">
-                  ${firstProj?.targetPrice.toFixed(2)}
+                  {cs}{firstProj?.targetPrice.toFixed(2)}
                 </p>
               </Card>
               <Card className="p-4">
