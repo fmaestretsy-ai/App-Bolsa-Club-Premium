@@ -380,6 +380,12 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     prevDA = da;
     prevShares = shares;
     prevWC = wc;
+    prevCashEq = projCashEq;
+    prevMktSec = projMktSec;
+    prevNetDebt = netDebt;
+    prevTotalDebt = projTotalDebt;
+    prevStDebt = projStDebt;
+    prevLtDebt = projLtDebt;
   }
 
   // ═══ STEP 16-17: Target prices, CAGR, Safety margin ═══
