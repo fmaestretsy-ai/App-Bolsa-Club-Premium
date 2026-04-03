@@ -139,19 +139,19 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const eps = netIncome / shares;
 
     // Step 2: WC
-    const inv = raw.inventory[i] || 0;
-    const ar = raw.accountsReceivable[i];
-    const ap = raw.accountsPayable[i];
-    const urC = raw.unearnedRevCurrent[i] || 0;
-    const urNC = raw.unearnedRevNonCurrent[i] || 0;
+    const inv = sa(raw.inventory, i);
+    const ar = sa(raw.accountsReceivable, i);
+    const ap = sa(raw.accountsPayable, i);
+    const urC = sa(raw.unearnedRevCurrent, i);
+    const urNC = sa(raw.unearnedRevNonCurrent, i);
     const wc = inv + ar - ap - urC - urNC;
     let cwc = 0;
-    if (i > 0 && raw.accountsPayable[i - 1] > 0) {
-      const pInv = raw.inventory[i - 1] || 0;
-      const pAR = raw.accountsReceivable[i - 1];
-      const pAP = raw.accountsPayable[i - 1];
-      const pURC = raw.unearnedRevCurrent[i - 1] || 0;
-      const pURNC = raw.unearnedRevNonCurrent[i - 1] || 0;
+    if (i > 0 && sa(raw.accountsPayable, i - 1) > 0) {
+      const pInv = sa(raw.inventory, i - 1);
+      const pAR = sa(raw.accountsReceivable, i - 1);
+      const pAP = sa(raw.accountsPayable, i - 1);
+      const pURC = sa(raw.unearnedRevCurrent, i - 1);
+      const pURNC = sa(raw.unearnedRevNonCurrent, i - 1);
       cwc = wc - (pInv + pAR - pAP - pURC - pURNC);
     }
 
