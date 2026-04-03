@@ -7,8 +7,9 @@ export interface ModelInputs {
   // IS inputs (per projected year)
   revenueGrowth: Record<number, number>;      // e.g. {2026: 0.15, 2027: 0.13, ...}
   ebitMargin: Record<number, number>;          // e.g. {2026: 0.34, ...}
-  taxRate: number;                             // e.g. 0.14
-  shareGrowthFirst: number;                    // e.g. -0.03 (applied to first year, then formula)
+  taxRate: Record<number, number>;             // e.g. {2026: 0.14, ...}
+  shareGrowth: Record<number, number>;         // e.g. {2026: -0.03, ...}
+  minorityInterestsPct: Record<number, number>; // e.g. {2026: 0, ...}
   // FCF inputs
   wcSales: number;                             // Working Capital / Sales ratio
   // Valoracion inputs
@@ -158,8 +159,7 @@ export function calculateModel(
     return { projected: [], targetPrices: [], priceFor15Return: 0, differenceVsCurrent: 0, cagr5y: {} };
   }
 
-  // Tax rate from inputs (user-editable) or median of last 3 years as default
-  const medianTaxRate = inputs.taxRate;
+  // Tax rate is now per-year
 
   // Interest rates (simplified: use averages from historical)
   const histInterestExpenses = sorted.map(h => h.interestExpense).filter(v => v != null) as number[];
@@ -195,7 +195,9 @@ export function calculateModel(
     const year = projectionYears[i];
     const revGrowth = inputs.revenueGrowth[year] ?? 0.10;
     const ebitMarg = inputs.ebitMargin[year] ?? 0.30;
-    const shareGrowth = i === 0 ? inputs.shareGrowthFirst : inputs.shareGrowthFirst;
+    const taxRateYear = inputs.taxRate[year] ?? 0.14;
+    const shareGrowth = inputs.shareGrowth[year] ?? -0.02;
+    const minorityPct = inputs.minorityInterestsPct[year] ?? 0;
 
     const revenue = prevRevenue * (1 + revGrowth);
     const da = prevDA * (1 + revGrowth); // D&A grows with revenue (negative value)
@@ -212,9 +214,9 @@ export function calculateModel(
     const totalInterest = interestExpense + interestIncome;
 
     const ebt = ebit + totalInterest;
-    const taxExpense = -Math.abs(ebt * medianTaxRate);
+    const taxExpense = -Math.abs(ebt * taxRateYear);
     const consolidatedNetIncome = ebt + taxExpense;
-    const minorityInterests = 0;
+    const minorityInterests = consolidatedNetIncome * minorityPct;
     const netIncome = consolidatedNetIncome + minorityInterests;
 
     const shares = prevShares * (1 + shareGrowth);
@@ -239,7 +241,7 @@ export function calculateModel(
     const evEbitVal = ev / ebit;
 
     // ROIC
-    const nopat = ebit * (1 - medianTaxRate);
+    const nopat = ebit * (1 - taxRateYear);
     const equity = lastHist.equity || marketCap * 0.5; // fallback
     const roe = netIncome / equity;
     const roic = nopat / (equity + Math.abs(netDebt));
@@ -260,7 +262,7 @@ export function calculateModel(
       totalInterest,
       ebt,
       taxExpense,
-      taxRate: medianTaxRate,
+      taxRate: taxRateYear,
       consolidatedNetIncome,
       minorityInterests,
       netIncome,
@@ -369,18 +371,38 @@ export function extractModelInputs(
   const defaultGrowths: Record<number, number> = {};
   const defaultMargins: Record<number, number> = {};
   const defaultNdEbitda: Record<number, number> = {};
+  const defaultTaxRate: Record<number, number> = {};
+  const defaultShareGrowth: Record<number, number> = {};
+  const defaultMinorityPct: Record<number, number> = {};
 
   projectionYears.forEach((y, i) => {
     defaultGrowths[y] = 0.10 - i * 0.01;
     defaultMargins[y] = 0.30;
     defaultNdEbitda[y] = 0.30;
+    defaultTaxRate[y] = 0.14;
+    defaultShareGrowth[y] = -0.02;
+    defaultMinorityPct[y] = 0;
   });
+
+  // Handle legacy single-value tax_rate → convert to per-year
+  let taxRateMap = cp.tax_rate;
+  if (typeof taxRateMap === 'number') {
+    taxRateMap = {};
+    projectionYears.forEach(y => { taxRateMap[y] = cp.tax_rate; });
+  }
+  // Handle legacy shareGrowthFirst → convert to per-year
+  let shareGrowthMap = cp.share_growth;
+  if (!shareGrowthMap && cp.share_growth_first != null) {
+    shareGrowthMap = {};
+    projectionYears.forEach(y => { shareGrowthMap[y] = cp.share_growth_first; });
+  }
 
   return {
     revenueGrowth: cp.revenue_growth || defaultGrowths,
     ebitMargin: cp.ebit_margin || defaultMargins,
-    taxRate: cp.tax_rate ?? 0.14,
-    shareGrowthFirst: cp.share_growth_first ?? -0.02,
+    taxRate: taxRateMap || defaultTaxRate,
+    shareGrowth: shareGrowthMap || defaultShareGrowth,
+    minorityInterestsPct: cp.minority_interests_pct || defaultMinorityPct,
     wcSales: cp.wc_sales ?? 0,
     netDebtEbitda: cp.net_debt_ebitda || defaultNdEbitda,
     currentPrice: assumptions?.current_price ?? 0,

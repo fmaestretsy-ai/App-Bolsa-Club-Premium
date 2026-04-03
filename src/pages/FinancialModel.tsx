@@ -223,7 +223,8 @@ export default function FinancialModel() {
         revenue_growth: newInputs.revenueGrowth,
         ebit_margin: newInputs.ebitMargin,
         tax_rate: newInputs.taxRate,
-        share_growth_first: newInputs.shareGrowthFirst,
+        share_growth: newInputs.shareGrowth,
+        minority_interests_pct: newInputs.minorityInterestsPct,
         wc_sales: newInputs.wcSales,
         net_debt_ebitda: newInputs.netDebtEbitda,
       };
@@ -265,6 +266,24 @@ export default function FinancialModel() {
     setLocalInputs(newInputs);
     saveMutation.mutate(newInputs);
   }, [modelInputs, saveMutation]);
+
+  /** Update a per-year Record field: sets the edited year + all subsequent years to the new value */
+  const updatePerYear = useCallback((
+    field: 'revenueGrowth' | 'ebitMargin' | 'taxRate' | 'shareGrowth' | 'netDebtEbitda' | 'minorityInterestsPct',
+    editedYear: number,
+    value: number,
+  ) => {
+    updateInput(prev => {
+      const updated = { ...prev[field] };
+      pYearsRef.forEach(y => {
+        if (y >= editedYear) updated[y] = value;
+      });
+      return { ...prev, [field]: updated };
+    });
+  }, [updateInput]);
+
+  // Stable ref for pYears to avoid stale closures
+  const pYearsRef = projectionYears;
 
   const handleCompanyChange = (id: string) => {
     setSelectedCompanyId(id);
@@ -343,11 +362,7 @@ export default function FinancialModel() {
                   histValues={histGrowth("revenue")}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.revenueGrowth[y] ?? 0.10} format="percent"
-                      onChange={v => updateInput(prev => {
-                        const updated: Record<number, number> = {};
-                        pYears.forEach(yr => { updated[yr] = v; });
-                        return { ...prev, revenueGrowth: updated };
-                      })}
+                      onChange={v => updatePerYear('revenueGrowth', y, v)}
                     />
                   ))}
                 />
@@ -381,11 +396,7 @@ export default function FinancialModel() {
                   })}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.ebitMargin[y] ?? 0.30} format="percent"
-                      onChange={v => updateInput(prev => {
-                        const updated: Record<number, number> = {};
-                        pYears.forEach(yr => { updated[yr] = v; });
-                        return { ...prev, ebitMargin: updated };
-                      })}
+                      onChange={v => updatePerYear('ebitMargin', y, v)}
                     />
                   ))}
                 />
@@ -431,8 +442,8 @@ export default function FinancialModel() {
                 <Row label="    Tax rate %" isSubRow
                   histValues={getHist("taxRate")}
                   projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.taxRate} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, taxRate: v }))}
+                    <EditableCell key={y} value={modelInputs.taxRate[y] ?? 0.14} format="percent"
+                      onChange={v => updatePerYear('taxRate', y, v)}
                     />
                   ))}
                 />
@@ -441,10 +452,14 @@ export default function FinancialModel() {
                   histValues={getHist("netIncome")}
                   projValues={result.projected.map(p => fmt(p.consolidatedNetIncome))}
                 />
-                {/* Minority Interests */}
+                {/* Minority Interests - ORANGE */}
                 <Row label="Minority Interests"
                   histValues={getHist("minorityInterests")}
-                  projValues={result.projected.map(p => fmt(p.minorityInterests))}
+                  projValues={pYears.map(y => (
+                    <EditableCell key={y} value={modelInputs.minorityInterestsPct[y] ?? 0} format="percent"
+                      onChange={v => updatePerYear('minorityInterestsPct', y, v)}
+                    />
+                  ))}
                 />
                 {/* Net Income */}
                 <Row label="Net Income" isBold isSeparator
@@ -477,8 +492,8 @@ export default function FinancialModel() {
                 <Row label="    Y/Y Growth %" isSubRow
                   histValues={histGrowth("dilutedShares")}
                   projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.shareGrowthFirst} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, shareGrowthFirst: v }))}
+                    <EditableCell key={y} value={modelInputs.shareGrowth[y] ?? -0.02} format="percent"
+                      onChange={v => updatePerYear('shareGrowth', y, v)}
                     />
                   ))}
                 />
