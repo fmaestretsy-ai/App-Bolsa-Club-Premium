@@ -438,6 +438,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
           peRatio: null, evEbitda: null, pFcf: null,
           revenueGrowth: null, netIncomeGrowth: null, fcfGrowth: null,
           dividendPerShare: null,
+          interestExpense: null, interestIncome: null, taxExpense: null,
           isProjection: yearInfo!.projectionStart != null && year >= yearInfo!.projectionStart,
         });
       }
