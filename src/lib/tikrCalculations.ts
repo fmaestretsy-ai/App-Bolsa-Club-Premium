@@ -160,9 +160,9 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const salePPE = sa(raw.salePPE, i);
     const saleIntang = sa(raw.saleIntangibles, i);
     const capexNeto = capexRaw + saleIntang + salePPE;
-    const capexMant = Math.abs(capexNeto) < da
+    const capexMant = Math.abs(capexNeto) < (deprec + amortGW)
       ? capexNeto
-      : -da;
+      : da;
 
     // Step 4: FCF
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;

@@ -14,7 +14,7 @@ function makeRaw(overrides: Partial<TikrRawData> = {}): TikrRawData {
     minorityInterest: zeros,
     dilutedShares: [100, 100, 100],
     basicShares: [100, 100, 100],
-    depreciation: [-50, -55, -60],
+    depreciation: [50, 55, 60],
     amortGoodwill: zeros,
     capex: [-80, -90, -100],
     salePPE: [5, 5, 5],
@@ -56,7 +56,9 @@ function makeRaw(overrides: Partial<TikrRawData> = {}): TikrRawData {
 
 function makeInputs(): TikrModelInputs {
   return {
-    lastSales: 1200, lastDA: -60, lastShares: 100,
+    lastSales: 1200,
+    lastDA: -60,
+    lastShares: 100,
     growthRates: [0.1, 0.1, 0.1, 0.1, 0.1],
     ebitMarginEst: [0.3, 0.3, 0.3, 0.3, 0.3],
     shareDilutionRate: 0.01,
@@ -64,47 +66,50 @@ function makeInputs(): TikrModelInputs {
     wcToSalesEst: [0.08, 0.08, 0.08, 0.08, 0.08],
     netCashChange: [0, 0, 0, 0, 0],
     netDebtToEBITDA: [0.3, 0.3, 0.3, 0.3, 0.3],
-    currentPrice: 24, targetPER: 20, targetEVFCF: 18,
-    targetEVEBITDA: 14, targetEVEBIT: 16,
-    taxRateEst: [], targetReturn: 0.15,
+    currentPrice: 24,
+    targetPER: 20,
+    targetEVFCF: 18,
+    targetEVEBITDA: 14,
+    targetEVEBIT: 16,
+    taxRateEst: [],
+    targetReturn: 0.15,
   };
 }
 
 describe("tikrCalculations – Capex de Mantenimiento", () => {
-  it("should NOT double-count saleIntangibles in capexMant", () => {
-    // capexNeto = -80 + (-10) + 5 = -85, da = 50 → |85| > 50 → capexMant = -50
+  it("uses D&A absolute as the maintenance capex ceiling", () => {
     const raw = makeRaw();
     const result = calculateFullModel(raw, makeInputs());
 
     result.hist.forEach((h, i) => {
-      const da = [50, 55, 60][i]; // -(deprec + amortGW)
+      const daAbs = [50, 55, 60][i];
       const capexNeto = [-80, -90, -100][i] + (-10) + 5;
-      const expected = Math.abs(capexNeto) < da ? capexNeto : -da;
+      const expected = Math.abs(capexNeto) < daAbs ? capexNeto : -daAbs;
       expect(h.capexMant).toBe(expected);
     });
   });
 
-  it("uses -da when |capexNeto| >= da", () => {
+  it("uses negative D&A when |capexNeto| is above D&A", () => {
     const raw = makeRaw({
       capex: [-200, -200, -200],
       salePPE: [0, 0, 0],
       saleIntangibles: [0, 0, 0],
     });
     const result = calculateFullModel(raw, makeInputs());
-    // da = [50, 55, 60], |capexNeto| = 200 > da → capexMant = -da
+
     result.hist.forEach((h, i) => {
       expect(h.capexMant).toBe(-[50, 55, 60][i]);
     });
   });
 
-  it("uses capexNeto when |capexNeto| < da", () => {
+  it("uses capexNeto when |capexNeto| is below D&A", () => {
     const raw = makeRaw({
       capex: [-30, -35, -40],
       salePPE: [0, 0, 0],
       saleIntangibles: [0, 0, 0],
     });
     const result = calculateFullModel(raw, makeInputs());
-    // da = [50, 55, 60], |capexNeto| < da → capexMant = capexNeto
+
     result.hist.forEach((h, i) => {
       expect(h.capexMant).toBe([-30, -35, -40][i]);
     });
