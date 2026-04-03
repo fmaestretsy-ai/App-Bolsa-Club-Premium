@@ -158,9 +158,8 @@ export function calculateModel(
     return { projected: [], targetPrices: [], priceFor15Return: 0, differenceVsCurrent: 0, cagr5y: {} };
   }
 
-  // Tax rate: median of last 3 years
-  const last3TaxRates = sorted.slice(-3).map(h => h.taxRate).filter(v => v != null && v > 0) as number[];
-  const medianTaxRate = last3TaxRates.length > 0 ? median(last3TaxRates) : 0.20;
+  // Tax rate from inputs (user-editable) or median of last 3 years as default
+  const medianTaxRate = inputs.taxRate;
 
   // Interest rates (simplified: use averages from historical)
   const histInterestExpenses = sorted.map(h => h.interestExpense).filter(v => v != null) as number[];
