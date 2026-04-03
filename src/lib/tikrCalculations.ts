@@ -156,9 +156,9 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     }
 
     // Step 3: CapEx Maint
-    const capexRaw = raw.capex[i];
-    const salePPE = raw.salePPE[i] || 0;
-    const saleIntang = raw.saleIntangibles[i] || 0;
+    const capexRaw = sa(raw.capex, i);
+    const salePPE = sa(raw.salePPE, i);
+    const saleIntang = sa(raw.saleIntangibles, i);
     const capexNeto = capexRaw + saleIntang + salePPE;
     const capexMant = Math.abs(capexNeto) < deprec
       ? capexNeto + saleIntang
