@@ -272,6 +272,8 @@ export type Database = {
       }
       financial_periods: {
         Row: {
+          accounts_payable: number | null
+          accounts_receivable: number | null
           bvps: number | null
           capex: number | null
           cash: number | null
@@ -290,6 +292,7 @@ export type Database = {
           id: string
           interest_expense: number | null
           interest_income: number | null
+          inventories: number | null
           margin_ebitda: number | null
           margin_fcf: number | null
           margin_net: number | null
@@ -304,11 +307,14 @@ export type Database = {
           roic: number | null
           tax_expense: number | null
           total_debt: number | null
+          unearned_revenue: number | null
           updated_at: string
           upload_id: string | null
           user_id: string
         }
         Insert: {
+          accounts_payable?: number | null
+          accounts_receivable?: number | null
           bvps?: number | null
           capex?: number | null
           cash?: number | null
@@ -327,6 +333,7 @@ export type Database = {
           id?: string
           interest_expense?: number | null
           interest_income?: number | null
+          inventories?: number | null
           margin_ebitda?: number | null
           margin_fcf?: number | null
           margin_net?: number | null
@@ -341,11 +348,14 @@ export type Database = {
           roic?: number | null
           tax_expense?: number | null
           total_debt?: number | null
+          unearned_revenue?: number | null
           updated_at?: string
           upload_id?: string | null
           user_id: string
         }
         Update: {
+          accounts_payable?: number | null
+          accounts_receivable?: number | null
           bvps?: number | null
           capex?: number | null
           cash?: number | null
@@ -364,6 +374,7 @@ export type Database = {
           id?: string
           interest_expense?: number | null
           interest_income?: number | null
+          inventories?: number | null
           margin_ebitda?: number | null
           margin_fcf?: number | null
           margin_net?: number | null
@@ -378,6 +389,7 @@ export type Database = {
           roic?: number | null
           tax_expense?: number | null
           total_debt?: number | null
+          unearned_revenue?: number | null
           updated_at?: string
           upload_id?: string | null
           user_id?: string

@@ -79,6 +79,10 @@ export interface ParsedPeriod {
   interestExpense: number | null;
   interestIncome: number | null;
   taxExpense: number | null;
+  inventories: number | null;
+  accountsReceivable: number | null;
+  accountsPayable: number | null;
+  unearnedRevenue: number | null;
   isProjection: boolean;
 }
 
@@ -109,6 +113,10 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^Interest Expense/i, "interestExpense"],
   [/^Interest Income/i, "interestIncome"],
   [/^Tax Expense/i, "taxExpense"],
+  [/^Inventories$/i, "inventories"],
+  [/^Accounts Receivable$/i, "accountsReceivable"],
+  [/^Accounts Payable$/i, "accountsPayable"],
+  [/^Unearned Revenue$/i, "unearnedRevenue"],
 ];
 
 const GROWTH_CONTEXT: Record<string, keyof ParsedPeriod> = {
@@ -439,6 +447,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
           revenueGrowth: null, netIncomeGrowth: null, fcfGrowth: null,
           dividendPerShare: null,
           interestExpense: null, interestIncome: null, taxExpense: null,
+          inventories: null, accountsReceivable: null, accountsPayable: null, unearnedRevenue: null,
           isProjection: yearInfo!.projectionStart != null && year >= yearInfo!.projectionStart,
         });
       }

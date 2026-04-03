@@ -11,7 +11,8 @@ export interface ModelInputs {
   shareGrowth: Record<number, number>;         // e.g. {2026: -0.03, ...}
   minorityInterestsPct: Record<number, number>; // e.g. {2026: 0, ...}
   // FCF inputs
-  wcSales: number;                             // Working Capital / Sales ratio
+  capexSalesRatio: Record<number, number>;     // CapEx Maint / Sales ratio per year
+  wcSales: Record<number, number>;             // Working Capital / Sales ratio per year
   // Valoracion inputs
   netDebtEbitda: Record<number, number>;       // Net Debt / EBITDA ratio per year
   currentPrice: number;
@@ -43,6 +44,10 @@ export interface HistoricalData {
   // FCF components
   capex: number | null;
   workingCapital: number | null;
+  inventories: number | null;
+  accountsReceivable: number | null;
+  accountsPayable: number | null;
+  unearnedRevenue: number | null;
   // Balance sheet
   totalDebt: number | null;
   cash: number | null;
@@ -223,9 +228,9 @@ export function calculateModel(
     const eps = netIncome / shares;
 
     // FCF
-    const capexSalesRatio = lastCapexSales; // Keep constant
+    const capexSalesRatio = inputs.capexSalesRatio[year] ?? lastCapexSales;
     const capexMaint = -capexSalesRatio * revenue;
-    const wc = inputs.wcSales * revenue;
+    const wc = (inputs.wcSales[year] ?? 0) * revenue;
     const wcChange = wc - prevWc;
     const fcf = ebitda + capexMaint + totalInterest + taxExpense - wcChange;
     const fcfps = fcf / shares;
@@ -374,6 +379,8 @@ export function extractModelInputs(
   const defaultTaxRate: Record<number, number> = {};
   const defaultShareGrowth: Record<number, number> = {};
   const defaultMinorityPct: Record<number, number> = {};
+  const defaultCapexSales: Record<number, number> = {};
+  const defaultWcSales: Record<number, number> = {};
 
   projectionYears.forEach((y, i) => {
     defaultGrowths[y] = 0.10 - i * 0.01;
@@ -382,6 +389,8 @@ export function extractModelInputs(
     defaultTaxRate[y] = 0.14;
     defaultShareGrowth[y] = -0.02;
     defaultMinorityPct[y] = 0;
+    defaultCapexSales[y] = 0.05;
+    defaultWcSales[y] = 0;
   });
 
   // Handle legacy single-value tax_rate → convert to per-year
@@ -396,6 +405,12 @@ export function extractModelInputs(
     shareGrowthMap = {};
     projectionYears.forEach(y => { shareGrowthMap[y] = cp.share_growth_first; });
   }
+  // Handle legacy single-value wc_sales → convert to per-year
+  let wcSalesMap = cp.wc_sales;
+  if (typeof wcSalesMap === 'number') {
+    wcSalesMap = {};
+    projectionYears.forEach(y => { wcSalesMap[y] = cp.wc_sales; });
+  }
 
   return {
     revenueGrowth: cp.revenue_growth || defaultGrowths,
@@ -403,7 +418,8 @@ export function extractModelInputs(
     taxRate: taxRateMap || defaultTaxRate,
     shareGrowth: shareGrowthMap || defaultShareGrowth,
     minorityInterestsPct: cp.minority_interests_pct || defaultMinorityPct,
-    wcSales: cp.wc_sales ?? 0,
+    capexSalesRatio: cp.capex_sales_ratio || defaultCapexSales,
+    wcSales: wcSalesMap || defaultWcSales,
     netDebtEbitda: cp.net_debt_ebitda || defaultNdEbitda,
     currentPrice: assumptions?.current_price ?? 0,
     targetPer: assumptions?.target_pe ?? 20,
@@ -463,7 +479,11 @@ export function periodsToHistorical(periods: any[]): HistoricalData[] {
       ebitMargin: ebit && p.revenue ? ebit / p.revenue : null,
       netMargin: p.margin_net,
       capex: p.capex,
-      workingCapital: null,
+      inventories: p.inventories ?? null,
+      accountsReceivable: p.accounts_receivable ?? null,
+      accountsPayable: p.accounts_payable ?? null,
+      unearnedRevenue: p.unearned_revenue ?? null,
+      workingCapital: ((p.inventories ?? 0) + (p.accounts_receivable ?? 0) - (p.accounts_payable ?? 0) - (p.unearned_revenue ?? 0)) || null,
       totalDebt: p.total_debt,
       cash: p.cash,
       netDebt: p.net_debt,
