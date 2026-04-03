@@ -79,7 +79,7 @@ const fmt = (v: number | null | undefined, decimals = 0) => {
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
-  return `${(v * 100).toFixed(1)}%`;
+  return `${Math.round(v * 100)}%`;
 };
 const pctColor = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "";
