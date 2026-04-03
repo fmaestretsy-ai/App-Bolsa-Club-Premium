@@ -515,9 +515,21 @@ export default function FinancialModel() {
                 <Row label="(-) CapEx Mantenimiento - en negativo"
                   histValues={hYears.map(y => {
                     const h = historical.find(h => h.fiscalYear === y);
-                    return h?.capex ? h.capex : null; // already negative from TIKR
+                    return h?.capex ? -Math.abs(h.capex) : null;
                   })}
-                  projValues={result.projected.map(p => fmt(p.capexMaint))}
+                  projValues={result.projected.map(p => fmtP(p.capexMaint))}
+                />
+                {/* CapEx / Sales - ORANGE */}
+                <Row label="    CapEx / Sales %" isSubRow isPercent
+                  histValues={hYears.map(y => {
+                    const h = historical.find(h => h.fiscalYear === y);
+                    return h?.capex && h?.revenue ? Math.abs(h.capex) / h.revenue : null;
+                  })}
+                  projValues={pYears.map(y => (
+                    <EditableCell key={y} value={modelInputs.capexSalesRatio[y] ?? 0.05} format="percent"
+                      onChange={v => updatePerYear('capexSalesRatio', y, v)}
+                    />
+                  ))}
                 />
                 {/* (-) Total interest expense */}
                 <Row label="(-) Total interest expense"
@@ -527,17 +539,54 @@ export default function FinancialModel() {
                     const ii = h?.interestIncome ?? 0;
                     return (ie !== 0 || ii !== 0) ? ie + ii : null;
                   })}
-                  projValues={result.projected.map(p => fmt(p.totalInterest))}
+                  projValues={result.projected.map(p => fmtP(p.totalInterest))}
                 />
                 {/* (-) Taxes paid */}
                 <Row label="(-) Taxes paid"
                   histValues={getHist("taxExpense")}
-                  projValues={result.projected.map(p => fmt(p.taxExpense))}
+                  projValues={result.projected.map(p => fmtP(p.taxExpense))}
                 />
-                {/* Working Capital */}
-                <Row label="Working Capital - WC"
+
+                {/* Working Capital components */}
+                <SectionHeader label="Working Capital" colSpan={totalCols} />
+                <Row label="Inventories"
+                  histValues={getHist("inventories")}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="Accounts Receivable"
+                  histValues={getHist("accountsReceivable")}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="(-) Accounts Payable"
+                  histValues={hYears.map(y => {
+                    const h = historical.find(h => h.fiscalYear === y);
+                    return h?.accountsPayable != null ? -Math.abs(h.accountsPayable) : null;
+                  })}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="(-) Unearned Revenue"
+                  histValues={hYears.map(y => {
+                    const h = historical.find(h => h.fiscalYear === y);
+                    return h?.unearnedRevenue != null ? -Math.abs(h.unearnedRevenue) : null;
+                  })}
+                  projValues={result.projected.map(() => "—")}
+                />
+                {/* Working Capital total */}
+                <Row label="Working Capital - WC" isBold
                   histValues={getHist("workingCapital")}
                   projValues={result.projected.map(p => fmt(p.wc))}
+                />
+                {/* WC / Sales - ORANGE */}
+                <Row label="    WC / Sales %" isSubRow isPercent
+                  histValues={hYears.map(y => {
+                    const h = historical.find(h => h.fiscalYear === y);
+                    return h?.workingCapital && h?.revenue ? h.workingCapital / h.revenue : null;
+                  })}
+                  projValues={pYears.map(y => (
+                    <EditableCell key={y} value={modelInputs.wcSales[y] ?? 0} format="percent"
+                      onChange={v => updatePerYear('wcSales', y, v)}
+                    />
+                  ))}
                 />
                 {/* (-) Variación WC */}
                 <Row label="(-) Variación de Working Capital - CWC"
@@ -547,7 +596,7 @@ export default function FinancialModel() {
                     const prev = historical.find(h => h.fiscalYear === hYears[i - 1])?.workingCapital;
                     return curr != null && prev != null ? curr - prev : null;
                   })}
-                  projValues={result.projected.map(p => fmt(p.wcChange))}
+                  projValues={result.projected.map(p => fmtP(p.wcChange))}
                 />
                 {/* (-) Otros ajustes */}
                 <Row label="(-) Otros ajustes"
@@ -570,7 +619,40 @@ export default function FinancialModel() {
                   histValues={histGrowth("fcf")}
                   projValues={result.projected.map(p => <span className={pctColor(p.fcfGrowth)}>{pct(p.fcfGrowth)}</span>)}
                 />
+
+                {/* Net Change in Cash */}
+                <SectionHeader label="Net Change in Cash" colSpan={totalCols} />
+                <Row label="Free Cash Flow"
+                  histValues={getHist("fcf")}
+                  projValues={result.projected.map(p => fmt(p.fcf))}
+                />
+                <Row label="(-) CapEx Expansión"
+                  histValues={hYears.map(() => null)}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="(-) Acquisitions"
+                  histValues={hYears.map(() => null)}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="(-) Dividends"
+                  histValues={hYears.map(() => null)}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="(-) Share Buybacks"
+                  histValues={hYears.map(() => null)}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="(-) Debt Repayment"
+                  histValues={hYears.map(() => null)}
+                  projValues={result.projected.map(() => "—")}
+                />
+                <Row label="Net Change in Cash" isBold isSeparator
+                  histValues={hYears.map(() => null)}
+                  projValues={result.projected.map(() => "—")}
+                />
+
                 {/* FCFPS */}
+                <SectionHeader label="Free Cash Flow per share" colSpan={totalCols} />
                 <Row label="Free Cash Flow per share - FCFPS"
                   histValues={hYears.map(y => {
                     const h = historical.find(h => h.fiscalYear === y);
@@ -592,31 +674,6 @@ export default function FinancialModel() {
 
                 {/* Efficiency section */}
                 <SectionHeader label="Eficiencia y márgenes" colSpan={totalCols} />
-                {/* CapEx/Sales - ORANGE */}
-                <Row label="CapEx Mantenimiento / Ventas" isPercent
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.capex && h?.revenue ? Math.abs(h.capex) / h.revenue : null;
-                  })}
-                  projValues={result.projected.map(p => (
-                    <span className="text-orange-600 dark:text-orange-400 font-semibold">{pct(p.capexSalesRatio)}</span>
-                  ))}
-                />
-                {/* WC/Sales - ORANGE */}
-                <Row label="Working Capital / Ventas"
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.workingCapital && h?.revenue ? h.workingCapital / h.revenue : null;
-                  })}
-                  projValues={[
-                    <EditableCell key="wc" value={modelInputs.wcSales} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, wcSales: v }))}
-                    />,
-                    ...pYears.slice(1).map(y => (
-                      <span key={y} className="text-orange-600 dark:text-orange-400 font-semibold">{pct(modelInputs.wcSales)}</span>
-                    )),
-                  ]}
-                />
                 {/* FCF/Sales */}
                 <Row label="FCF / Ventas (FCF Margin)" isPercent
                   histValues={hYears.map(y => {
