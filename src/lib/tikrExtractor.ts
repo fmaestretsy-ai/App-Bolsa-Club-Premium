@@ -339,7 +339,7 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
     const row = cfSheet[r];
     if (!row) continue;
     for (let c = 1; c < row.length; c++) {
-      if (typeof row[c] === "string" && row[c].toUpperCase() === "LTM") { ltmCol = c; break; }
+      if (typeof row[c] === "string" && (row[c] as string).toUpperCase() === "LTM") { ltmCol = c; break; }
     }
     if (ltmCol >= 0) break;
   }
