@@ -302,7 +302,7 @@ export default function CompanyDetail() {
                             <TableCell>
                               <Badge variant="secondary">{r.scenarioType}</Badge>
                             </TableCell>
-                            <TableCell className="text-right font-mono">${r.intrinsicValue.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono">{cs}{r.intrinsicValue.toFixed(2)}</TableCell>
                             <TableCell className={`text-right font-semibold ${r.upside >= 0 ? "text-green-500" : "text-red-500"}`}>
                               {r.upside >= 0 ? "+" : ""}{r.upside.toFixed(1)}%
                             </TableCell>
