@@ -399,7 +399,7 @@ export default function Valuation() {
                           <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
                           {targetPrices.map(tp => (
                             <TableCell key={tp.year} className="text-right font-mono text-sm text-foreground">
-                              {(tp as any)[key] != null ? `$${Math.round((tp as any)[key])}` : "—"}
+                              {(tp as any)[key] != null ? `${cs}${Math.round((tp as any)[key])}` : "—"}
                             </TableCell>
                           ))}
                           <TableCell className={`text-right font-mono text-sm font-semibold ${cagr && cagr >= 0 ? "text-success" : "text-destructive"}`}>
