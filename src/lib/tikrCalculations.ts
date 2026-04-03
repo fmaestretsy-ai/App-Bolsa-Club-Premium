@@ -380,8 +380,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const prevEquity = j === 0 ? last.equity : proj[j - 1].equity;
     const retainedEarnings = netIncome * (1 - medianCapitalReturnRatio);
     const projEquity = prevEquity + retainedEarnings;
-    const curLeases = last.curLeases * (1 + gr) ** (j + 1);
-    const ncLeases = last.ncLeases * (1 + gr) ** (j + 1);
+    const prevCurLeases = j === 0 ? last.curLeases : proj[j - 1].curLeases;
+    const prevNcLeases = j === 0 ? last.ncLeases : proj[j - 1].ncLeases;
+    const curLeases = prevCurLeases * (1 + gr);
+    const ncLeases = prevNcLeases * (1 + gr);
     const ic = projEquity + projStDebt + projLtDebt + curLeases + ncLeases - projMktSec;
 
     const projYear = last.year + j + 1;
