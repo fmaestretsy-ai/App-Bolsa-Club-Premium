@@ -132,7 +132,6 @@ function Row({
   isBold?: boolean;
   isSubRow?: boolean;
   isSeparator?: boolean;
-  decimals?: number;
   projStart?: number;
   medianVal?: number | null;
   isMultiple?: boolean;
