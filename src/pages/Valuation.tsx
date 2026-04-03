@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function Valuation() {
   const { t } = useTranslation();
@@ -179,9 +180,11 @@ export default function Valuation() {
     return n.toFixed(decimals);
   };
 
+  const cs = getCurrencySymbol(company?.currency);
+
   const fmtPrice = (n: number | null | undefined) => {
     if (n == null) return "—";
-    return `$${n.toFixed(2)}`;
+    return `${cs}${n.toFixed(2)}`;
   };
 
   const pct = (n: number | null | undefined) => {
@@ -328,7 +331,7 @@ export default function Valuation() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="p-5">
                 <h3 className="text-sm font-semibold text-card-foreground mb-1">Precio por acción actual</h3>
-                <p className="text-3xl font-bold text-foreground">{currentPrice > 0 ? `$${currentPrice.toFixed(0)}` : "—"}</p>
+                <p className="text-3xl font-bold text-foreground">{currentPrice > 0 ? `${cs}${currentPrice.toFixed(0)}` : "—"}</p>
               </Card>
 
               <Card className="p-5">
@@ -396,7 +399,7 @@ export default function Valuation() {
                           <TableCell className="sticky left-0 bg-card z-10 font-medium text-foreground">{label}</TableCell>
                           {targetPrices.map(tp => (
                             <TableCell key={tp.year} className="text-right font-mono text-sm text-foreground">
-                              {(tp as any)[key] != null ? `$${Math.round((tp as any)[key])}` : "—"}
+                              {(tp as any)[key] != null ? `${cs}${Math.round((tp as any)[key])}` : "—"}
                             </TableCell>
                           ))}
                           <TableCell className={`text-right font-mono text-sm font-semibold ${cagr && cagr >= 0 ? "text-success" : "text-destructive"}`}>
@@ -409,7 +412,7 @@ export default function Valuation() {
                       <TableCell className="sticky left-0 bg-card z-10 font-semibold text-foreground">Promedio</TableCell>
                       {targetPrices.map(tp => (
                         <TableCell key={tp.year} className="text-right font-mono text-sm font-semibold text-foreground">
-                          {tp.average != null ? `$${Math.round(tp.average)}` : "—"}
+                          {tp.average != null ? `${cs}${Math.round(tp.average)}` : "—"}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-mono text-sm font-semibold">
@@ -472,7 +475,7 @@ export default function Valuation() {
                 <div>
                   <p className="text-xs text-muted-foreground">Precio de compra para {targetReturnRate}% anual</p>
                   <p className="text-2xl font-bold text-foreground mt-1">
-                    {priceForTargetReturn ? `$${Math.round(priceForTargetReturn)}` : "—"}
+                    {priceForTargetReturn ? `${cs}${Math.round(priceForTargetReturn)}` : "—"}
                   </p>
                 </div>
                 <div>
@@ -500,7 +503,7 @@ export default function Valuation() {
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} tickFormatter={(v) => `${cs}${v}`} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
@@ -508,7 +511,7 @@ export default function Valuation() {
                           borderRadius: "8px",
                           color: "hsl(var(--card-foreground))",
                         }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, undefined]}
+                        formatter={(value: number) => [`${cs}${value.toFixed(2)}`, undefined]}
                       />
                       <Legend />
                       <Bar dataKey="PER ex Cash" fill="hsl(var(--chart-1))" radius={[2, 2, 0, 0]} />

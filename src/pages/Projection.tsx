@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useCompanies, useFinancialPeriods, useProjectionYears } from "@/hooks/useCompanyData";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function Projection() {
   const { t } = useTranslation();
@@ -54,11 +55,13 @@ export default function Projection() {
   const lastProj = projections.length > 0 ? projections[projections.length - 1] : null;
   const firstProj = projections.length > 0 ? projections[0] : null;
 
+  const cs = getCurrencySymbol(company?.currency);
+
   const fmt = (n: number | null) => {
     if (n == null) return "—";
-    if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
-    if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-    return `$${n.toFixed(2)}`;
+    if (Math.abs(n) >= 1e6) return `${cs}${(n / 1e6).toFixed(0)}M`;
+    if (Math.abs(n) >= 1e3) return `${cs}${(n / 1e3).toFixed(1)}K`;
+    return `${cs}${n.toFixed(2)}`;
   };
 
   if (isLoading) {
@@ -98,19 +101,19 @@ export default function Projection() {
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Precio actual</p>
                 <p className="text-xl font-bold text-foreground mt-1">
-                  {currentPrice > 0 ? `$${currentPrice.toFixed(0)}` : "—"}
+                  {currentPrice > 0 ? `${cs}${currentPrice.toFixed(0)}` : "—"}
                 </p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">{t("projection.targetPrice")} {firstProj?.year}</p>
                 <p className="text-xl font-bold text-foreground mt-1">
-                  ${firstProj?.targetPrice.toFixed(2)}
+                  {cs}{firstProj?.targetPrice.toFixed(2)}
                 </p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">{t("projection.targetPrice")} {lastProj?.year}</p>
                 <p className="text-xl font-bold text-success mt-1">
-                  ${lastProj?.targetPrice.toFixed(2)}
+                  {cs}{lastProj?.targetPrice.toFixed(2)}
                 </p>
               </Card>
               <Card className="p-4">
@@ -128,7 +131,7 @@ export default function Projection() {
                   <BarChart data={projections}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${cs}${v.toFixed(0)}`} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
@@ -136,7 +139,7 @@ export default function Projection() {
                         borderRadius: "8px",
                         color: "hsl(var(--card-foreground))",
                       }}
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, "Precio objetivo"]}
+                      formatter={(value: number) => [`${cs}${value.toFixed(2)}`, "Precio objetivo"]}
                     />
                     <Legend />
                     <Bar dataKey="targetPrice" name="Precio objetivo EV/FCF" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
@@ -160,7 +163,7 @@ export default function Projection() {
                     {projections.map((row) => (
                       <TableRow key={row.year}>
                         <TableCell className="font-semibold">{row.year}</TableCell>
-                        <TableCell className="text-right font-mono">${row.targetPrice.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">{cs}{row.targetPrice.toFixed(2)}</TableCell>
                         <TableCell className={`text-right font-semibold ${row.expectedReturn >= 0 ? "text-success" : "text-destructive"}`}>
                           {row.expectedReturn >= 0 ? "+" : ""}{row.expectedReturn.toFixed(1)}%
                         </TableCell>

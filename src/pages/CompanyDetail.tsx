@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { TradeDialog } from "@/components/TradeDialog";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function CompanyDetail() {
   const { t } = useTranslation();
@@ -28,11 +29,13 @@ export default function CompanyDetail() {
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState("");
 
+  const cs = getCurrencySymbol(company?.currency);
+
   const fmt = (n: number | null) => {
     if (n == null) return "—";
-    if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
-    if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-    return `$${n.toFixed(2)}`;
+    if (Math.abs(n) >= 1e6) return `${cs}${(n / 1e6).toFixed(0)}M`;
+    if (Math.abs(n) >= 1e3) return `${cs}${(n / 1e3).toFixed(1)}K`;
+    return `${cs}${n.toFixed(2)}`;
   };
 
   const pct = (n: number | null) => (n != null ? `${(n * 100).toFixed(1)}%` : "—");
@@ -161,7 +164,7 @@ export default function CompanyDetail() {
             ) : (
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-xl font-bold text-card-foreground">
-                  {company.current_price ? `$${Number(company.current_price).toFixed(2)}` : "—"}
+                  {company.current_price ? `${cs}${Number(company.current_price).toFixed(2)}` : "—"}
                 </p>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPriceInput(String(company.current_price || "")); setEditingPrice(true); }}>
                   <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -172,7 +175,7 @@ export default function CompanyDetail() {
           <Card className="p-4">
             <p className="text-xs text-muted-foreground">{t("valuation.intrinsicValue")}</p>
             <p className="text-xl font-bold text-card-foreground mt-1">
-              {avgBaseIV ? `$${avgBaseIV.toFixed(2)}` : "—"}
+              {avgBaseIV ? `${cs}${avgBaseIV.toFixed(2)}` : "—"}
             </p>
             <p className="text-xs text-muted-foreground">{t("valuation.base")} (promedio)</p>
           </Card>
@@ -239,7 +242,7 @@ export default function CompanyDetail() {
                           <TableCell className="text-right font-mono">{pct(Number(p.margin_ebitda))}</TableCell>
                           <TableCell className="text-right font-mono">{pct(Number(p.margin_net))}</TableCell>
                           <TableCell className="text-right font-mono">
-                            {p.eps != null ? `$${Number(p.eps).toFixed(2)}` : "—"}
+                            {p.eps != null ? `${cs}${Number(p.eps).toFixed(2)}` : "—"}
                           </TableCell>
                           <TableCell className="text-right font-mono">{pct(Number(p.roe))}</TableCell>
                           <TableCell className="text-right font-mono">{pct(Number(p.roic))}</TableCell>
@@ -272,7 +275,7 @@ export default function CompanyDetail() {
                     return (
                       <Card key={scenario} className="p-5">
                         <p className="text-sm font-medium text-muted-foreground mb-2">{labels[scenario]}</p>
-                        <p className="text-3xl font-bold text-card-foreground">${avgIV.toFixed(2)}</p>
+                        <p className="text-3xl font-bold text-card-foreground">{cs}{avgIV.toFixed(2)}</p>
                         <p className={`text-sm font-semibold mt-1 ${avgUp >= 0 ? "text-green-500" : "text-red-500"}`}>
                           {avgUp >= 0 ? "+" : ""}{avgUp.toFixed(1)}% upside
                         </p>
@@ -299,7 +302,7 @@ export default function CompanyDetail() {
                             <TableCell>
                               <Badge variant="secondary">{r.scenarioType}</Badge>
                             </TableCell>
-                            <TableCell className="text-right font-mono">${r.intrinsicValue.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono">{cs}{r.intrinsicValue.toFixed(2)}</TableCell>
                             <TableCell className={`text-right font-semibold ${r.upside >= 0 ? "text-green-500" : "text-red-500"}`}>
                               {r.upside >= 0 ? "+" : ""}{r.upside.toFixed(1)}%
                             </TableCell>
@@ -327,7 +330,7 @@ export default function CompanyDetail() {
                       <BarChart data={projections}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                         <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `$${(v / 1e3).toFixed(0)}B`} />
+                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${cs}${(v / 1e3).toFixed(0)}B`} />
                         <Tooltip
                           contentStyle={{
                             backgroundColor: "hsl(var(--card))",
@@ -365,8 +368,8 @@ export default function CompanyDetail() {
                             <TableCell className="text-right font-mono">{fmt(row.revenue)}</TableCell>
                             <TableCell className="text-right font-mono">{fmt(row.netIncome)}</TableCell>
                             <TableCell className="text-right font-mono">{fmt(row.fcf)}</TableCell>
-                            <TableCell className="text-right font-mono">${row.eps.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-mono">${row.targetPrice.toFixed(2)}</TableCell>
+                             <TableCell className="text-right font-mono">{cs}{row.eps.toFixed(2)}</TableCell>
+                             <TableCell className="text-right font-mono">{cs}{row.targetPrice.toFixed(2)}</TableCell>
                             <TableCell className={`text-right font-semibold ${row.expectedReturn >= 0 ? "text-green-500" : "text-red-500"}`}>
                               {row.expectedReturn >= 0 ? "+" : ""}{row.expectedReturn.toFixed(1)}%
                             </TableCell>

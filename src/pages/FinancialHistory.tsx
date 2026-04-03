@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useCompanies, useFinancialPeriods } from "@/hooks/useCompanyData";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function FinancialHistory() {
   const { t } = useTranslation();
@@ -15,12 +16,15 @@ export default function FinancialHistory() {
   const companyId = selectedId || companies[0]?.id;
   const { data: periods = [] } = useFinancialPeriods(companyId);
 
+  const company = companies.find((c) => c.id === companyId);
+  const cs = getCurrencySymbol(company?.currency);
+
   const fmt = (n: number | null) => {
     if (n == null) return "—";
     const v = Number(n);
-    if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
-    if (Math.abs(v) >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
-    return `$${v.toFixed(2)}`;
+    if (Math.abs(v) >= 1e6) return `${cs}${(v / 1e6).toFixed(0)}M`;
+    if (Math.abs(v) >= 1e3) return `${cs}${(v / 1e3).toFixed(1)}K`;
+    return `${cs}${v.toFixed(2)}`;
   };
 
   const pct = (n: number | null) => (n != null ? `${(Number(n) * 100).toFixed(1)}%` : "—");
@@ -82,8 +86,8 @@ export default function FinancialHistory() {
                       <TableCell className="text-right font-mono">{fmt(Number(row.net_income))}</TableCell>
                       <TableCell className="text-right font-mono">{fmt(Number(row.fcf))}</TableCell>
                       <TableCell className="text-right font-mono">{pct(Number(row.margin_net))}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {row.eps != null ? `$${Number(row.eps).toFixed(2)}` : "—"}
+                       <TableCell className="text-right font-mono">
+                        {row.eps != null ? `${cs}${Number(row.eps).toFixed(2)}` : "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono">{pct(Number(row.roe))}</TableCell>
                       <TableCell className="text-right font-mono">{pct(Number(row.roic))}</TableCell>

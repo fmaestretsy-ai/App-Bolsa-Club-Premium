@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCompanies } from "@/hooks/useCompanyData";
 import { EmptyState } from "@/components/EmptyState";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function Companies() {
   const { t } = useTranslation();
@@ -69,7 +70,7 @@ export default function Companies() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground">{c.country}</TableCell>
                     <TableCell className="text-right font-mono">
-                      {c.current_price ? `$${Number(c.current_price).toFixed(2)}` : "—"}
+                      {c.current_price ? `${getCurrencySymbol(c.currency)}${Number(c.current_price).toFixed(2)}` : "—"}
                     </TableCell>
                   </TableRow>
                 ))}

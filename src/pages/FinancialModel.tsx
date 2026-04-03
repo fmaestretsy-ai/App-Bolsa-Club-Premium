@@ -14,6 +14,7 @@ import * as XLSX from "xlsx";
 import { extractTikrData, extractManualInputs, type TikrModelInputs } from "@/lib/tikrExtractor";
 import { calculateFullModel, type FullModelResult, type YC } from "@/lib/tikrCalculations";
 import { Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from "recharts";
+import { getCurrencySymbol } from "@/lib/currency";
 
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
@@ -605,7 +606,7 @@ export default function FinancialModel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Precio compra:</span>
-                  <span className="font-semibold text-foreground">${fmt(buyPrice)}</span>
+                  <span className="font-semibold text-foreground">{getCurrencySymbol(companies.find(c => c.id === companyId)?.currency)}{fmt(buyPrice)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">vs precio actual:</span>
