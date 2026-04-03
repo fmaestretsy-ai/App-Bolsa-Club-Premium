@@ -106,6 +106,9 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^Deuda Neta$|^Net Debt$/i, "netDebt"],
   [/^Dividend[s]?\s*(per\s*share)?$|^DPS$/i, "dividendPerShare"],
   [/^Book Value per Share|^BVPS$/i, "bvps"],
+  [/^Interest Expense/i, "interestExpense"],
+  [/^Interest Income/i, "interestIncome"],
+  [/^Tax Expense/i, "taxExpense"],
 ];
 
 const GROWTH_CONTEXT: Record<string, keyof ParsedPeriod> = {
