@@ -471,6 +471,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     totalAllocPct: 0, // computed below as sum of component medians
     netDebtToEBITDA: med(hist.map(h => s(h.netDebt, h.ebitda))),
   };
+  medians.totalAllocPct = medians.capexExpPct + medians.acqPct + medians.divPct + medians.buybackPct + medians.debtRepayPct;
 
   // ═══ Red flag counts ═══
   let salesDecline = 0, marginDecline = 0, negativeFCF = 0, poorROIC = 0, highDebt = 0;
