@@ -475,7 +475,7 @@ export default function Valuation() {
                 <div>
                   <p className="text-xs text-muted-foreground">Precio de compra para {targetReturnRate}% anual</p>
                   <p className="text-2xl font-bold text-foreground mt-1">
-                    {priceForTargetReturn ? `$${Math.round(priceForTargetReturn)}` : "—"}
+                    {priceForTargetReturn ? `${cs}${Math.round(priceForTargetReturn)}` : "—"}
                   </p>
                 </div>
                 <div>
