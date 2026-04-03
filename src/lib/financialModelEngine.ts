@@ -11,7 +11,8 @@ export interface ModelInputs {
   shareGrowth: Record<number, number>;         // e.g. {2026: -0.03, ...}
   minorityInterestsPct: Record<number, number>; // e.g. {2026: 0, ...}
   // FCF inputs
-  wcSales: number;                             // Working Capital / Sales ratio
+  capexSalesRatio: Record<number, number>;     // CapEx Maint / Sales ratio per year
+  wcSales: Record<number, number>;             // Working Capital / Sales ratio per year
   // Valoracion inputs
   netDebtEbitda: Record<number, number>;       // Net Debt / EBITDA ratio per year
   currentPrice: number;
