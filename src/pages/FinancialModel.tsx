@@ -357,7 +357,19 @@ export default function FinancialModel() {
                 <Row label="Total Interest" values={all("totalInt")} projStart={N} />
                 <Row label="EBT" isBold values={all("ebt")} projStart={N} />
                 <Row label="Tax Expense" values={all("tax")} projStart={N} />
-                <Row label="    Tax rate %" isSubRow isPercent values={all("taxRate")} projStart={N} />
+                <Row label="    Tax rate %" isSubRow isPercent projStart={N}
+                  values={[
+                    ...hist.map(h => h.taxRate),
+                    ...pYears.map((_, j) => (
+                      <EditableCell key={j} value={inputs!.taxRateEst?.[j] || (model?.projTaxRate ?? 0.15)} format="percent"
+                        onChange={v => updateInput(p => {
+                          const arr = [...(p.taxRateEst || [])]; arr[j] = v;
+                          return { ...p, taxRateEst: arr };
+                        })}
+                      />
+                    ))
+                  ]}
+                />
                 <Row label="Consol. Net Income" values={all("consolNI")} projStart={N} />
                 <Row label="Minority Interest" values={all("mi")} projStart={N} />
                 <Row label="Net Income" isBold isSeparator values={all("netIncome")} projStart={N} />
