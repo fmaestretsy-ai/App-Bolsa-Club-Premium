@@ -112,7 +112,11 @@ function medPositive(arr: number[]): number {
 
 export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): FullModelResult {
   const N = raw.years.length;
+  if (N === 0) return emptyResult();
   const hist: YC[] = [];
+
+  // Safe array accessor — returns 0 for out-of-bounds or undefined
+  const sa = (arr: number[] | undefined, i: number): number => (arr && i < arr.length ? (arr[i] ?? 0) : 0);
 
   // ═══ STEPS 1-9: Historical ═══
   for (let i = 0; i < N; i++) {
