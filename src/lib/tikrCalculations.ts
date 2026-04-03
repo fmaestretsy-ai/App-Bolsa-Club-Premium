@@ -468,7 +468,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     divPct: med(histWithCF.map(h => h.divPct)),
     buybackPct: med(histWithCF.map(h => h.buybackPct)),
     debtRepayPct: med(histWithCF.map(h => h.debtRepayPct)),
-    totalAllocPct: med(histWithCF.map(h => h.totalAllocPct)),
+    totalAllocPct: 0, // computed below as sum of component medians
     netDebtToEBITDA: med(hist.map(h => s(h.netDebt, h.ebitda))),
   };
 
