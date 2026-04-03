@@ -396,7 +396,7 @@ export default function FinancialModel() {
                 {/* Interest Expense */}
                 <Row label="Interest Expense"
                   histValues={getHist("interestExpense")}
-                  projValues={result.projected.map(p => fmt(p.interestExpense))}
+                  projValues={result.projected.map(p => fmtP(p.interestExpense))}
                 />
                 {/* Interest Income */}
                 <Row label="Interest Income"
