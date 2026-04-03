@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useCompanies, useFinancialPeriods } from "@/hooks/useCompanyData";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function FinancialHistory() {
   const { t } = useTranslation();
