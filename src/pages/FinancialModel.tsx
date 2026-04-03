@@ -16,6 +16,8 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { Calculator } from "lucide-react";
 
+type HistoricalPeriod = ReturnType<typeof periodsToHistorical>[number];
+
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
   value, onChange, format = "number", className = "",
@@ -198,6 +200,10 @@ export default function FinancialModel() {
 
   const historical = useMemo(() => periodsToHistorical(periods), [periods]);
   const historicalYears = useMemo(() => historical.map(h => h.fiscalYear).sort((a, b) => a - b), [historical]);
+  const projectedFromExcel = useMemo(
+    () => periodsToHistorical(periods.filter((p) => projectionYears.includes(p.fiscal_year))),
+    [periods, projectionYears]
+  );
 
   const [localInputs, setLocalInputs] = useState<ModelInputs | null>(null);
 
@@ -321,6 +327,23 @@ export default function FinancialModel() {
     return hYears.map(y => historical.find(h => h.fiscalYear === y)?.[field] as number | null);
   };
 
+  const getProjectedExcelValue = (year: number, field: keyof HistoricalPeriod) => {
+    return projectedFromExcel.find((p) => p.fiscalYear === year)?.[field] as number | null | undefined;
+  };
+
+  const getProjectedDisplay = (
+    year: number,
+    calculatedValue: number | null | undefined,
+    field: keyof HistoricalPeriod,
+    options?: { decimals?: number; negative?: boolean }
+  ) => {
+    const excelValue = getProjectedExcelValue(year, field);
+    const value = excelValue ?? calculatedValue;
+    if (value == null || Number.isNaN(value)) return "—";
+    if (options?.decimals != null) return <span>{value.toFixed(options.decimals)}</span>;
+    return options?.negative ? fmtP(value) : fmt(value);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-4 animate-fade-in">
@@ -408,12 +431,12 @@ export default function FinancialModel() {
                 {/* Interest Expense */}
                 <Row label="Interest Expense"
                   histValues={getHist("interestExpense")}
-                  projValues={result.projected.map(p => fmtP(p.interestExpense))}
+                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.interestExpense, "interestExpense", { negative: true }))}
                 />
                 {/* Interest Income */}
                 <Row label="Interest Income"
                   histValues={getHist("interestIncome")}
-                  projValues={result.projected.map(p => fmt(p.interestIncome))}
+                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.interestIncome, "interestIncome"))}
                 />
                 {/* Total Interest */}
                 <Row label="Total Interest expense"
@@ -478,7 +501,7 @@ export default function FinancialModel() {
                 {/* EPS */}
                 <Row label="EPS"
                   histValues={getHist("eps")}
-                  projValues={result.projected.map(p => <span>{p.eps.toFixed(2)}</span>)}
+                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.eps, "eps", { decimals: 2 }))}
                 />
                 <Row label="    Y/Y Growth %" isSubRow isPercent
                   histValues={histGrowth("eps")}
@@ -514,7 +537,11 @@ export default function FinancialModel() {
                 {/* (-) CapEx Mantenimiento */}
                 <Row label="(-) CapEx Mantenimiento - en negativo"
                   histValues={getHist("capex")}
-                  projValues={result.projected.map(p => fmtP(p.capexMaint))}
+                  projValues={result.projected.map(p => {
+                    const excelCapex = getProjectedExcelValue(p.year, "capex");
+                    const value = excelCapex != null ? -Math.abs(excelCapex) : p.capexMaint;
+                    return fmtP(value);
+                  })}
                 />
                 {/* (-) Total interest expense */}
                 <Row label="(-) Total interest expense"
