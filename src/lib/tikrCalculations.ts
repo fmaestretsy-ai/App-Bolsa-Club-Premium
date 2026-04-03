@@ -219,7 +219,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       intExp, intInc, totalInt, ebt, tax, taxRate,
       consolNI, mi, netIncome, eps, shares,
       capexMant, wc, cwc, fcf, fcfps,
-      netCashChange: raw.netCashChangeHist[i],
+      netCashChange: sa(raw.netCashChangeHist, i),
       inv, ar, ap, urC, urNC,
       nopat, cashEq, mktSec, stDebt, ltDebt: ltDebt,
       curLeases, ncLeases, equity, ic, roe, roic, reinvRate,
