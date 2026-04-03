@@ -277,10 +277,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   // ─── Equity projection: retained earnings model ───
   // Capital return ratio = median of (buybacks + dividends) / net income
   const capitalReturnRatios = hist
-    .map(h => {
+    .map((h, idx) => {
       if (h.netIncome <= 0) return null;
-      const buyback = Math.abs(raw.repurchaseStock[hist.indexOf(h)] || 0);
-      const divPaid = Math.abs(raw.dividendsPaid[hist.indexOf(h)] || 0);
+      const buyback = Math.abs(sa(raw.repurchaseStock, idx));
+      const divPaid = Math.abs(sa(raw.dividendsPaid, idx));
       return (buyback + divPaid) / h.netIncome;
     })
     .filter((r): r is number => r != null && r >= 0 && r < 2 && isFinite(r));
