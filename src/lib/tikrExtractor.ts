@@ -261,7 +261,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
  * Read computed 2025 values from 1.IS, 2.FCF, 3.ROIC, 4.Valoracion
  * and CF items from TIKR CF LTM column.
  */
-function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
+function appendLTMFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const is1 = findSheet(wb, "1.IS");
   const fcf2 = findSheet(wb, "2.FCF");
   const roic3 = findSheet(wb, "3.ROIC");
@@ -269,20 +269,27 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
 
   if (is1.length < 10) return;
 
-  // Find the 2025 column in 1.IS (last historical year)
+  // Find the last historical year column in 1.IS (the one right before projected cols)
   const headerRow = is1[1];
   if (!headerRow) return;
-  let col2025 = -1;
-  for (let c = 1; c < headerRow.length; c++) {
-    const cell = headerRow[c];
-    if (cell === 2025 || String(cell) === "2025") { col2025 = c; break; }
+  const { lastHistCol } = findProjectedCols(headerRow);
+  const lastHistCellVal = headerRow[lastHistCol];
+  let summaryLastYear = 0;
+  if (typeof lastHistCellVal === "number") {
+    summaryLastYear = lastHistCellVal >= 1990 && lastHistCellVal <= 2060
+      ? lastHistCellVal
+      : lastHistCellVal > 30000 ? serialToYear(lastHistCellVal) : 0;
+  } else {
+    const p = parseInt(String(lastHistCellVal), 10);
+    if (p >= 1990 && p <= 2060) summaryLastYear = p;
   }
-  if (col2025 < 0) return;
+  if (summaryLastYear === 0) return;
+  const col2025 = lastHistCol;
 
-  const lastHistYear = raw.years[raw.years.length - 1] || 2024;
-  // If 2025 (or later) is already in the raw data, don't append again
-  if (lastHistYear >= 2025) return;
-  const year2025 = lastHistYear + 1;
+  const lastTikrYear = raw.years[raw.years.length - 1] || 0;
+  // If the TIKR data already includes this year, don't append again
+  if (lastTikrYear >= summaryLastYear) return;
+  const year2025 = summaryLastYear;
 
   // Read key IS values
   const salesRow = findRowIdx(is1, "sales", "ventas");
