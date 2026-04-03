@@ -150,7 +150,7 @@ function Row({
         const num = v as number | null | undefined;
         const isNeg = num != null && typeof num === "number" && num < 0;
         const cl = isPercent ? pctC(num) : isNeg ? "text-red-500 dark:text-red-400" : "";
-        const display = isMultiple ? fmtX(num) : isPercent ? pct(num) : fmt(num, decimals);
+        const display = isMultiple ? fmtX(num) : isPercent ? pct(num) : fmt(num);
         return (
           <td key={i} className={`text-right p-1.5 text-xs ${cl} ${i >= projStart ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
             {display}
