@@ -292,12 +292,13 @@ export default function FinancialModel() {
         </p>
 
         <Tabs defaultValue="is" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="is">1. IS</TabsTrigger>
             <TabsTrigger value="fcf">2. FCF</TabsTrigger>
             <TabsTrigger value="roic">3. ROIC</TabsTrigger>
             <TabsTrigger value="val">4. Valoración</TabsTrigger>
             <TabsTrigger value="rf">5. Red Flags</TabsTrigger>
+            <TabsTrigger value="charts">6. Gráficos</TabsTrigger>
           </TabsList>
 
           {/* ═══════════════ 1. INCOME STATEMENT ═══════════════ */}
