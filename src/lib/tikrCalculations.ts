@@ -348,9 +348,9 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
   // ═══ STEP 16-17: Target prices, CAGR, Safety margin ═══
   const targetPrices: TargetPriceYear[] = proj.map(p => {
-    const perExCash = p.netDebt < 0
-      ? (p.netIncome * inputs.targetPER + Math.abs(p.netDebt)) / p.shares
-      : (p.netIncome * inputs.targetPER) / p.shares;
+    // PER ex Cash: always (NI × PER - NetDebt) / shares
+    // When netDebt < 0 (net cash), subtracting negative adds value
+    const perExCash = (p.netIncome * inputs.targetPER - p.netDebt) / p.shares;
     const evFcfP = (p.fcf * inputs.targetEVFCF - p.netDebt) / p.shares;
     const evEbitdaP = (p.ebitda * inputs.targetEVEBITDA - p.netDebt) / p.shares;
     const evEbitP = (p.ebit * inputs.targetEVEBIT - p.netDebt) / p.shares;
