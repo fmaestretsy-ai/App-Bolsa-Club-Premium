@@ -330,7 +330,7 @@ export default function CompanyDetail() {
                       <BarChart data={projections}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                         <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `$${(v / 1e3).toFixed(0)}B`} />
+                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${cs}${(v / 1e3).toFixed(0)}B`} />
                         <Tooltip
                           contentStyle={{
                             backgroundColor: "hsl(var(--card))",
