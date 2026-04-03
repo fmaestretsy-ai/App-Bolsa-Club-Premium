@@ -76,6 +76,9 @@ export interface ParsedPeriod {
   netIncomeGrowth: number | null;
   fcfGrowth: number | null;
   dividendPerShare: number | null;
+  interestExpense: number | null;
+  interestIncome: number | null;
+  taxExpense: number | null;
   isProjection: boolean;
 }
 
