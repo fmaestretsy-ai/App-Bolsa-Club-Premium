@@ -199,12 +199,13 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const fcfAbs = Math.abs(fcf);
     const fcfPos = fcf > 0 ? fcf : 0;
 
-    // Step 9: Red flags
+    // Step 9: Red flags — sum specific extraordinary items
     const aw = Math.abs(raw.assetWritedown[i] || 0);
     const ig = Math.abs(raw.impairmentGoodwill[i] || 0);
-    const ebtExcl = raw.ebtExclUnusual?.[i] || 0;
-    const ebtIncl = raw.ebtInclUnusual?.[i] || 0;
-    const unusualItems = Math.abs(ebtExcl - ebtIncl);
+    const mr = Math.abs(raw.mergerRestructuring[i] || 0);
+    const ls = Math.abs(raw.legalSettlements[i] || 0);
+    const oui = Math.abs(raw.otherUnusualItems[i] || 0);
+    const unusualItems = mr + ls + aw + oui;
 
     // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
     const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - (deprec + amortGW) + cwc) / nopat : 0;
@@ -409,7 +410,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   const targetPrices: TargetPriceYear[] = proj.map(p => {
     // PER ex Cash: always (NI × PER - NetDebt) / shares
     // When netDebt < 0 (net cash), subtracting negative adds value
-    const perExCash = (p.netIncome * inputs.targetPER - p.netDebt) / p.shares;
+    const perExCash = (p.netIncome * inputs.targetPER) / p.shares;
     const evFcfP = (p.fcf * inputs.targetEVFCF - p.netDebt) / p.shares;
     const evEbitdaP = (p.ebitda * inputs.targetEVEBITDA - p.netDebt) / p.shares;
     const evEbitP = (p.ebit * inputs.targetEVEBIT - p.netDebt) / p.shares;

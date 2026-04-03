@@ -22,6 +22,9 @@ export interface TikrRawData {
   basicShares: number[];
   assetWritedown: number[];
   impairmentGoodwill: number[];
+  mergerRestructuring: number[];
+  legalSettlements: number[];
+  otherUnusualItems: number[];
   cashEquiv: number[];
   totalCashSTI: number[];
   inventory: number[];
@@ -53,8 +56,6 @@ export interface TikrRawData {
   debtRepaid: number[];
   netCashChangeHist: number[];
   marketCapMM: number[];
-  ebtExclUnusual: number[];
-  ebtInclUnusual: number[];
 }
 
 export interface TikrModelInputs {
@@ -213,6 +214,9 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     basicShares: g(is, hdr, "Weighted Average Basic Shares Outstanding", "Basic Shares", "Acciones básicas"),
     assetWritedown: g(is, hdr, "Asset Writedown", "Deterioro de activos"),
     impairmentGoodwill: g(is, hdr, "Impairment of Goodwill", "Deterioro fondo de comercio"),
+    mergerRestructuring: g(is, hdr, "Merger & Restructuring", "Merger and Restructuring", "Restructuring Charges"),
+    legalSettlements: g(is, hdr, "Legal Settlements", "Acuerdos legales"),
+    otherUnusualItems: g(is, hdr, "Other Unusual Items", "Otros elementos inusuales"),
     cashEquiv: g(bs, bsH, "Cash And Equivalents", "Cash & Equivalents", "Efectivo"),
     totalCashSTI: g(bs, bsH, "Total Cash And Short Term Investments", "Total Cash & STI", "Total efectivo"),
     inventory: g(bs, bsH, "Inventory", "Inventories", "Inventario"),
@@ -244,8 +248,6 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     debtRepaid: g(cf, cfH, "Total Debt Repaid", "Debt Repaid", "Deuda pagada"),
     netCashChangeHist: g(cf, cfH, "Net Change in Cash", "Cambio neto en efectivo"),
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
-    ebtExclUnusual: g(is, hdr, "EBT, Excl. Unusual Items", "EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl"),
-    ebtInclUnusual: g(is, hdr, "EBT, Incl. Unusual Items", "EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl"),
   };
 
   // ─── Append 2025 from summary sheets (replacing LTM) ───
@@ -363,7 +365,7 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const assetWD2025 = cfVal("Asset Writedown", "Restructuring Costs");
   const impGW2025 = cfVal("Impairment of Goodwill");
 
-  // ─── Read EBT Excl/Incl from IS LTM column (not CF) ───
+  // ─── Read extraordinary items from IS LTM column ───
   const isSheet = findSheet(wb, "7.TIKR_IS", "TIKR_IS", "tikr_is");
   let isLtmCol = -1;
   for (let r = 0; r < Math.min(5, isSheet.length); r++) {
@@ -378,8 +380,9 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
     const row = findRow(isSheet, ...terms);
     return row && isLtmCol >= 0 ? n(row[isLtmCol]) : 0;
   };
-  const ebtExcl2025 = isLtmVal("EBT, Excl. Unusual Items", "EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
-  const ebtIncl2025 = isLtmVal("EBT, Incl. Unusual Items", "EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
+  const mergerRestr2025 = isLtmVal("Merger & Restructuring", "Merger and Restructuring", "Restructuring Charges");
+  const legalSettl2025 = isLtmVal("Legal Settlements", "Acuerdos legales");
+  const otherUnusual2025 = isLtmVal("Other Unusual Items", "Otros elementos inusuales");
 
   // Append to raw data
   raw.years.push(year2025);
@@ -425,8 +428,9 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.debtRepaid.push(debtRepaid2025);
   raw.netCashChangeHist.push(nc2025);
   raw.marketCapMM.push(mktCap2025);
-  raw.ebtExclUnusual.push(ebtExcl2025);
-  raw.ebtInclUnusual.push(ebtIncl2025);
+  raw.mergerRestructuring.push(mergerRestr2025);
+  raw.legalSettlements.push(legalSettl2025);
+  raw.otherUnusualItems.push(otherUnusual2025);
 }
 
 // ─── Manual inputs extraction (label-based) ───
