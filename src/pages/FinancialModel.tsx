@@ -406,7 +406,7 @@ export default function FinancialModel() {
                   values={[...hist.map(h => s(h.fcf, h.sales)), ...proj.map(p => s(p.fcf, p.sales))]}
                   medianVal={medians.fcfMargin}
                 />
-                <Row label="FCFPS" values={all("fcfps")} projStart={N} decimals={2} />
+                <Row label="FCFPS" values={all("fcfps")} projStart={N} />
                 <Row label="Net Change in Cash" values={all("netCashChange")} projStart={N} />
 
                 <SectionHeader label="Eficiencia" colSpan={totalCols} />
