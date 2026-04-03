@@ -352,7 +352,8 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const wcRate = inputs.wcToSalesEst[j] ?? inputs.wcToSalesEst[0] ?? 0;
     const capexMant = -(capexMantRate * sales);
     const wc = wcRate * sales;
-    const cwc = j === 0 ? wc - prevWC : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
+    // First projection year: no ΔWC (matches Excel template)
+    const cwc = j === 0 ? 0 : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
     const fcfps = fcf / shares;
 
