@@ -118,6 +118,7 @@ export default function ExcelUpload() {
               ticker: parsed.ticker,
               name: parsed.companyName || parsed.ticker,
               sector: parsed.sector,
+              currency: parsed.currency ?? 'USD',
               target_price_5y: parsed.targetPrice5y,
               price_for_15_return: parsed.priceFor15Return,
               estimated_annual_return: parsed.estimatedAnnualReturn,
