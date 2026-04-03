@@ -232,9 +232,9 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       buybackPct: fcfPos > 0 ? buyback / fcfPos : 0,
       debtRepayPct: fcfPos > 0 ? debtRep / fcfPos : 0,
       totalAllocPct: 0,
-      impPct: s(aw + ig, sales), sbcPct: s(raw.sbc[i] || 0, sales),
-      divstPct: s(raw.divestitures[i] || 0, sales),
-      issuancePct: s(raw.issuanceStock[i] || 0, sales),
+      impPct: s(aw + ig, sales), sbcPct: s(sa(raw.sbc, i), sales),
+      divstPct: s(sa(raw.divestitures, i), sales),
+      issuancePct: s(sa(raw.issuanceStock, i), sales),
       extraPct: s(unusualItems, sales),
     });
     const h = hist[hist.length - 1];
