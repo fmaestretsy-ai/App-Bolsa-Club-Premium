@@ -186,6 +186,9 @@ export default function ExcelUpload() {
           net_income_growth: p.netIncomeGrowth,
           fcf_growth: p.fcfGrowth,
           dividend_per_share: p.dividendPerShare,
+          interest_expense: p.interestExpense,
+          interest_income: p.interestIncome,
+          tax_expense: p.taxExpense,
         }));
 
         const { error: periodsError } = await supabase

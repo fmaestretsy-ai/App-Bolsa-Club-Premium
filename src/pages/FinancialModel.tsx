@@ -74,8 +74,17 @@ function EditableCell({
 /* ─── Format helpers ─── */
 const fmt = (v: number | null | undefined, decimals = 0) => {
   if (v == null || isNaN(v)) return "—";
+  if (v < 0) {
+    const abs = decimals === 0 ? Math.round(Math.abs(v)).toLocaleString() : Math.abs(v).toFixed(decimals);
+    return `(${abs})`;
+  }
   if (decimals === 0) return Math.round(v).toLocaleString();
   return v.toFixed(decimals);
+};
+const fmtNeg = (v: number | null | undefined) => {
+  if (v == null || isNaN(v)) return <span>—</span>;
+  if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
+  return <span>{Math.round(v).toLocaleString()}</span>;
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
@@ -88,6 +97,10 @@ const pctColor = (v: number | null | undefined) => {
 const fmtX = (v: number | null | undefined) => {
   if (v == null || isNaN(v) || !isFinite(v)) return "—";
   return v.toFixed(1) + "x";
+};
+const negClass = (v: number | null | undefined) => {
+  if (v != null && v < 0) return "text-red-500 dark:text-red-400";
+  return "";
 };
 
 /* ─── Table shell ─── */
