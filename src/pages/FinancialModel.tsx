@@ -452,10 +452,14 @@ export default function FinancialModel() {
                   histValues={getHist("netIncome")}
                   projValues={result.projected.map(p => fmt(p.consolidatedNetIncome))}
                 />
-                {/* Minority Interests */}
+                {/* Minority Interests - ORANGE */}
                 <Row label="Minority Interests"
                   histValues={getHist("minorityInterests")}
-                  projValues={result.projected.map(p => fmt(p.minorityInterests))}
+                  projValues={pYears.map(y => (
+                    <EditableCell key={y} value={modelInputs.minorityInterestsPct[y] ?? 0} format="percent"
+                      onChange={v => updatePerYear('minorityInterestsPct', y, v)}
+                    />
+                  ))}
                 />
                 {/* Net Income */}
                 <Row label="Net Income" isBold isSeparator
