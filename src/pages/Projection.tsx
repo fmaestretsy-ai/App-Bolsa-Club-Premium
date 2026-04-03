@@ -101,7 +101,7 @@ export default function Projection() {
               <Card className="p-4">
                 <p className="text-xs text-muted-foreground">Precio actual</p>
                 <p className="text-xl font-bold text-foreground mt-1">
-                  {currentPrice > 0 ? `$${currentPrice.toFixed(0)}` : "—"}
+                  {currentPrice > 0 ? `${cs}${currentPrice.toFixed(0)}` : "—"}
                 </p>
               </Card>
               <Card className="p-4">
