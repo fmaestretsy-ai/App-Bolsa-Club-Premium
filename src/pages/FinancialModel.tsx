@@ -87,6 +87,18 @@ const fmtP = (v: number | null | undefined) => {
   if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
   return Math.round(v).toLocaleString();
 };
+const pct = (v: number | null | undefined) => {
+  if (v == null || isNaN(v)) return "—";
+  return `${Math.round(v * 100)}%`;
+};
+const pctColor = (v: number | null | undefined) => {
+  if (v == null || isNaN(v)) return "";
+  return v >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400";
+};
+const fmtX = (v: number | null | undefined) => {
+  if (v == null || isNaN(v) || !isFinite(v)) return "—";
+  return v.toFixed(1) + "x";
+};
 
 /* ─── Table shell ─── */
 function ModelTable({
