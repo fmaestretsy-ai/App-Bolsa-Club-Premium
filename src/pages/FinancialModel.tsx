@@ -33,7 +33,7 @@ function EditableCell({
     : Math.round(value).toLocaleString();
 
   const handleStart = () => {
-    setRaw(format === "percent" ? (value * 100).toFixed(1) : String(value));
+    setRaw(format === "percent" ? String(Math.round(value * 100)) : String(value));
     setEditing(true);
   };
 
