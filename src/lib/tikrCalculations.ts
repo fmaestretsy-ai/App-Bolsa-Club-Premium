@@ -244,40 +244,42 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   const validTaxRates = hist.slice(-3).map(h => h.taxRate).filter(t => t > 0 && t < 1);
   const projTaxRate = med(validTaxRates);
 
-  // Interest rate averages — use median of per-year rates for robustness
-  const yearlyIntExpRates = hist.map(h => {
-    const debt = h.stDebt + h.ltDebt;
-    return debt > 0 ? Math.abs(h.intExp) / debt : 0;
-  }).filter(r => r > 0 && isFinite(r));
-  const yearlyIntIncRates = hist.map(h => {
-    const totalCash = h.cashEq + h.mktSec;
-    return totalCash > 0 ? h.intInc / totalCash : 0;
-  }).filter(r => r > 0 && isFinite(r));
-  const avgIntExpRate = yearlyIntExpRates.length > 0 ? med(yearlyIntExpRates) : 0.03;
-  const avgIntIncRate = yearlyIntIncRates.length > 0 ? med(yearlyIntIncRates) : 0.02;
-
-  // Use last year's absolute interest values as fallback
-  const lastIntExp = Math.abs(last.intExp);
-  const lastIntInc = last.intInc;
+  // Interest rates from historical workbook logic
+  const totalHistDebt = hist.reduce((sum, h) => sum + h.stDebt + h.ltDebt, 0);
+  const totalHistMktSec = hist.reduce((sum, h) => sum + h.mktSec, 0);
+  const totalHistIntExp = hist.reduce((sum, h) => sum + Math.abs(h.intExp), 0);
+  const totalHistIntInc = hist.reduce((sum, h) => sum + h.intInc, 0);
+  const avgIntExpRate = totalHistDebt > 0 ? totalHistIntExp / totalHistDebt : 0.03;
+  const avgIntIncRate = totalHistMktSec > 0 ? totalHistIntInc / totalHistMktSec : 0.02;
 
   // Minority interest ratio
   const miRatio = last.consolNI !== 0 ? last.mi / last.consolNI : 0;
 
-  // Debt distribution ratios from last year
+  // Debt and liquidity structure from last year
   const lastTotalDebt = last.stDebt + last.ltDebt;
   const lastCashPlusSec = last.cashEq + last.mktSec;
   const stPct = lastTotalDebt > 0 ? last.stDebt / lastTotalDebt : 0;
   const ltPct = lastTotalDebt > 0 ? last.ltDebt / lastTotalDebt : 1;
   const cashPct = lastCashPlusSec > 0 ? last.cashEq / lastCashPlusSec : 0.5;
   const secPct = lastCashPlusSec > 0 ? last.mktSec / lastCashPlusSec : 0.5;
+  const histCashSecRatios = hist
+    .map(h => s(h.cashEq + h.mktSec, h.sales))
+    .filter(r => r > 0 && isFinite(r));
+  const minCashSecToSales = histCashSecRatios.length > 0
+    ? Math.min(...histCashSecRatios)
+    : s(lastCashPlusSec, last.sales);
 
-  // Lease growth rate (use revenue growth as proxy)
   const proj: YC[] = [];
   let prevSales = inputs.lastSales;
   let prevDA = inputs.lastDA;
   let prevShares = inputs.lastShares;
   let prevWC = last.wc;
-  const lastGrowth = inputs.growthRates[0] || 0.10;
+  let prevCashEq = last.cashEq;
+  let prevMktSec = last.mktSec;
+  let prevNetDebt = last.netDebt;
+  let prevTotalDebt = lastTotalDebt;
+  let prevStDebt = last.stDebt;
+  let prevLtDebt = last.ltDebt;
 
   for (let j = 0; j < 5; j++) {
     const gr = inputs.growthRates[j] ?? 0.10;
@@ -289,25 +291,39 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const ndRatio = inputs.netDebtToEBITDA[j] ?? 0.3;
     const netDebt = ndRatio * ebitda;
 
-    // Distribute into debt & cash
-    const grossDebt = netDebt > 0 ? netDebt + lastCashPlusSec * (1 + gr) ** (j + 1) : lastTotalDebt * (1 + gr) ** (j + 1);
-    const cashSec = grossDebt - netDebt;
-    const projStDebt = grossDebt * stPct;
-    const projLtDebt = grossDebt * ltPct;
-    const projCashEq = cashSec * cashPct;
-    const projMktSec = cashSec * secPct;
-    const projTotalCash = projCashEq + projMktSec;
+    let projCashEq = 0;
+    let projMktSec = 0;
+    let projTotalDebt = 0;
 
-    // Interest: apply rate to total debt / total cash; fallback to scaling last year's values
-    const projTotalDebt = projStDebt + projLtDebt;
-    const lastTotalDebtVal = lastTotalDebt || 1;
-    const lastTotalCashVal = lastCashPlusSec || 1;
-    const intExp = projTotalDebt > 0
-      ? -(avgIntExpRate * projTotalDebt)
-      : lastIntExp > 0 ? -(lastIntExp * (1 + gr) ** (j + 1)) : 0;
-    const intInc = projTotalCash > 0
-      ? avgIntIncRate * projTotalCash
-      : lastIntInc > 0 ? lastIntInc * (1 + gr) ** (j + 1) : 0;
+    if (j === 0) {
+      const totalCashSec = netDebt > 0
+        ? minCashSecToSales * sales
+        : Math.abs(prevNetDebt) > 0
+          ? ((prevCashEq + prevMktSec) / Math.abs(prevNetDebt)) * Math.abs(netDebt)
+          : (prevCashEq + prevMktSec);
+
+      projCashEq = totalCashSec * cashPct;
+      projMktSec = totalCashSec * secPct;
+      projTotalDebt = netDebt > 0
+        ? netDebt + totalCashSec
+        : Math.abs(prevNetDebt) > 0
+          ? (prevTotalDebt / Math.abs(prevNetDebt)) * Math.abs(netDebt)
+          : prevTotalDebt;
+    } else {
+      projCashEq = prevSales > 0 ? (prevCashEq / prevSales) * sales : prevCashEq;
+      projMktSec = prevSales > 0 ? (prevMktSec / prevSales) * sales : prevMktSec;
+      projTotalDebt = Math.abs(prevNetDebt) > 0
+        ? (prevTotalDebt / Math.abs(prevNetDebt)) * Math.abs(netDebt)
+        : netDebt > 0
+          ? netDebt + projCashEq + projMktSec
+          : prevTotalDebt;
+    }
+
+    const projStDebt = prevTotalDebt > 0 ? (prevStDebt / prevTotalDebt) * projTotalDebt : stPct * projTotalDebt;
+    const projLtDebt = prevTotalDebt > 0 ? (prevLtDebt / prevTotalDebt) * projTotalDebt : ltPct * projTotalDebt;
+
+    const intExp = -(avgIntExpRate * projTotalDebt);
+    const intInc = avgIntIncRate * projMktSec;
     const totalInt = intExp + intInc;
 
     const ebt = ebit + totalInt;
