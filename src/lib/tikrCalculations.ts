@@ -230,7 +230,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       impPct: s(aw + ig, sales), sbcPct: s(raw.sbc[i] || 0, sales),
       divstPct: s(raw.divestitures[i] || 0, sales),
       issuancePct: s(raw.issuanceStock[i] || 0, sales),
-      extraPct: 0,
+      extraPct: s(unusualItems, sales),
     });
     const h = hist[hist.length - 1];
     h.totalAllocPct = h.capexExpPct + h.acqPct + h.divPct + h.buybackPct + h.debtRepayPct;
