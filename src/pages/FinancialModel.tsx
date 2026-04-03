@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCompanies, useFinancialPeriods, useCompanyAssumptions } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   calculateModel, extractModelInputs, periodsToHistorical,
@@ -15,6 +15,9 @@ import {
 } from "@/lib/financialModelEngine";
 import { EmptyState } from "@/components/EmptyState";
 import { Calculator } from "lucide-react";
+import { parseExcelFile } from "@/lib/excelParser";
+
+type HistoricalPeriod = ReturnType<typeof periodsToHistorical>[number];
 
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
@@ -132,7 +135,7 @@ function ModelTable({
 }
 
 function Row({
-  label, histValues, projValues, isSubRow = false, isBold = false, isPercent = false, isSeparator = false,
+  label, histValues, projValues, isSubRow = false, isBold = false, isPercent = false, isSeparator = false, decimals = 0,
 }: {
   label: string;
   histValues: (number | null | undefined)[];
@@ -141,6 +144,7 @@ function Row({
   isBold?: boolean;
   isPercent?: boolean;
   isSeparator?: boolean;
+  decimals?: number;
 }) {
   return (
     <tr className={`border-b border-border/30 ${isSeparator ? "border-t-2 border-t-border" : ""} ${isBold ? "font-semibold bg-muted/20" : ""}`}>
@@ -152,7 +156,7 @@ function Row({
         const isNeg = val != null && !isNaN(val) && val < 0;
         return (
           <td key={i} className={`text-right p-1.5 text-xs ${isPercent ? pctColor(val) : isNeg ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
-            {isPercent ? pct(val) : fmt(val)}
+            {isPercent ? pct(val) : fmt(val, decimals)}
           </td>
         );
       })}
@@ -187,6 +191,30 @@ export default function FinancialModel() {
   const { data: periods = [] } = useFinancialPeriods(companyId || undefined);
   const { data: assumptions } = useCompanyAssumptions(companyId || undefined);
   const company = companies.find(c => c.id === companyId);
+  const { data: parsedExcel } = useQuery({
+    queryKey: ["model-excel", companyId],
+    enabled: !!user && !!companyId,
+    queryFn: async () => {
+      const { data: upload, error } = await supabase
+        .from("excel_uploads")
+        .select("file_path, file_name")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!upload?.file_path || !upload.file_name) return null;
+
+      const { data: file, error: downloadError } = await supabase.storage
+        .from("excel-uploads")
+        .download(upload.file_path);
+
+      if (downloadError) throw downloadError;
+
+      return parseExcelFile(await file.arrayBuffer(), upload.file_name);
+    },
+  });
 
   const currentYear = new Date().getFullYear();
   const projectionYears = useMemo(() => {
@@ -198,6 +226,10 @@ export default function FinancialModel() {
 
   const historical = useMemo(() => periodsToHistorical(periods), [periods]);
   const historicalYears = useMemo(() => historical.map(h => h.fiscalYear).sort((a, b) => a - b), [historical]);
+  const projectedFromExcel = useMemo(
+    () => (parsedExcel?.projectedPeriods ? periodsToHistorical(parsedExcel.projectedPeriods as any[]) : []),
+    [parsedExcel]
+  );
 
   const [localInputs, setLocalInputs] = useState<ModelInputs | null>(null);
 
@@ -321,6 +353,23 @@ export default function FinancialModel() {
     return hYears.map(y => historical.find(h => h.fiscalYear === y)?.[field] as number | null);
   };
 
+  const getProjectedExcelValue = (year: number, field: keyof HistoricalPeriod) => {
+    return projectedFromExcel.find((p) => p.fiscalYear === year)?.[field] as number | null | undefined;
+  };
+
+  const getProjectedDisplay = (
+    year: number,
+    calculatedValue: number | null | undefined,
+    field: keyof HistoricalPeriod,
+    options?: { decimals?: number; negative?: boolean }
+  ) => {
+    const excelValue = getProjectedExcelValue(year, field);
+    const value = excelValue ?? calculatedValue;
+    if (value == null || Number.isNaN(value)) return "—";
+    if (options?.decimals != null) return <span>{value.toFixed(options.decimals)}</span>;
+    return options?.negative ? fmtP(value) : fmt(value);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-4 animate-fade-in">
@@ -408,12 +457,12 @@ export default function FinancialModel() {
                 {/* Interest Expense */}
                 <Row label="Interest Expense"
                   histValues={getHist("interestExpense")}
-                  projValues={result.projected.map(p => fmtP(p.interestExpense))}
+                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.interestExpense, "interestExpense", { negative: true }))}
                 />
                 {/* Interest Income */}
                 <Row label="Interest Income"
                   histValues={getHist("interestIncome")}
-                  projValues={result.projected.map(p => fmt(p.interestIncome))}
+                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.interestIncome, "interestIncome"))}
                 />
                 {/* Total Interest */}
                 <Row label="Total Interest expense"
@@ -422,7 +471,14 @@ export default function FinancialModel() {
                     if (!h) return null;
                     return (h.interestExpense ?? 0) + (h.interestIncome ?? 0);
                   })}
-                  projValues={result.projected.map(p => fmtP(p.totalInterest))}
+                  projValues={result.projected.map(p => {
+                    const interestExpense = getProjectedExcelValue(p.year, "interestExpense");
+                    const interestIncome = getProjectedExcelValue(p.year, "interestIncome");
+                    const total = interestExpense != null || interestIncome != null
+                      ? (interestExpense ?? 0) + (interestIncome ?? 0)
+                      : p.totalInterest;
+                    return fmtP(total);
+                  })}
                 />
                 {/* EBT */}
                 <Row label="EBT" isBold
@@ -476,9 +532,9 @@ export default function FinancialModel() {
                   projValues={result.projected.map(p => <span className={pctColor(p.netIncomeGrowth)}>{pct(p.netIncomeGrowth)}</span>)}
                 />
                 {/* EPS */}
-                <Row label="EPS"
+                <Row label="EPS" decimals={2}
                   histValues={getHist("eps")}
-                  projValues={result.projected.map(p => <span>{p.eps.toFixed(2)}</span>)}
+                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.eps, "eps", { decimals: 2 }))}
                 />
                 <Row label="    Y/Y Growth %" isSubRow isPercent
                   histValues={histGrowth("eps")}
@@ -513,8 +569,15 @@ export default function FinancialModel() {
                 />
                 {/* (-) CapEx Mantenimiento */}
                 <Row label="(-) CapEx Mantenimiento - en negativo"
-                  histValues={getHist("capex")}
-                  projValues={result.projected.map(p => fmtP(p.capexMaint))}
+                  histValues={hYears.map(y => {
+                    const value = historical.find(h => h.fiscalYear === y)?.capex;
+                    return value != null ? -Math.abs(value) : null;
+                  })}
+                  projValues={result.projected.map(p => {
+                    const excelCapex = getProjectedExcelValue(p.year, "capex");
+                    const value = excelCapex != null ? -Math.abs(excelCapex) : p.capexMaint;
+                    return fmtP(value);
+                  })}
                 />
                 {/* (-) Total interest expense */}
                 <Row label="(-) Total interest expense"
@@ -524,7 +587,14 @@ export default function FinancialModel() {
                     const ii = h?.interestIncome ?? 0;
                     return (ie !== 0 || ii !== 0) ? ie + ii : null;
                   })}
-                  projValues={result.projected.map(p => fmtP(p.totalInterest))}
+                  projValues={result.projected.map(p => {
+                    const interestExpense = getProjectedExcelValue(p.year, "interestExpense");
+                    const interestIncome = getProjectedExcelValue(p.year, "interestIncome");
+                    const total = interestExpense != null || interestIncome != null
+                      ? (interestExpense ?? 0) + (interestIncome ?? 0)
+                      : p.totalInterest;
+                    return fmtP(total);
+                  })}
                 />
                 {/* (-) Taxes paid */}
                 <Row label="(-) Taxes paid"

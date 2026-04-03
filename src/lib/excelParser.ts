@@ -39,6 +39,7 @@ export interface ParsedFinancialData {
   ticker: string | null;
   sector: string | null;
   periods: ParsedPeriod[];
+  projectedPeriods: ParsedPeriod[];
   targetPrice5y: number | null;
   priceFor15Return: number | null;
   estimatedAnnualReturn: number | null;
@@ -104,7 +105,7 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^EV \/ FCF$/i, "pFcf"],
   [/^ROE$/i, "roe"],
   [/^ROIC$/i, "roic"],
-  [/^Depreciation|^D&A/i, "capex"],
+  [/^CapEx( de mantenimiento)?$|^Capex( de mantenimiento)?$|^Maintenance CapEx$|^CapEx Mantenimiento/i, "capex"],
   [/^Short-Term Debt/i, "totalDebt"],
   [/^Cash and cash/i, "cash"],
   [/^Deuda Neta$|^Net Debt$/i, "netDebt"],
@@ -507,11 +508,16 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     .filter(p => !p.isProjection)
     .sort((a, b) => a.fiscalYear - b.fiscalYear);
 
+  const projectedPeriods = Array.from(allPeriods.values())
+    .filter(p => p.isProjection)
+    .sort((a, b) => a.fiscalYear - b.fiscalYear);
+
   return {
     companyName: detectedName,
     ticker: detectedTicker,
     sector: summaryData.sector,
     periods,
+    projectedPeriods,
     targetPrice5y: summaryData.targetPrice5y,
     priceFor15Return: summaryData.priceFor15Return,
     estimatedAnnualReturn: summaryData.estimatedAnnualReturn,
