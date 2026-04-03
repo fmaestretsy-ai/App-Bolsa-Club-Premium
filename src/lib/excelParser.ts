@@ -79,6 +79,10 @@ export interface ParsedPeriod {
   interestExpense: number | null;
   interestIncome: number | null;
   taxExpense: number | null;
+  inventories: number | null;
+  accountsReceivable: number | null;
+  accountsPayable: number | null;
+  unearnedRevenue: number | null;
   isProjection: boolean;
 }
 
