@@ -241,7 +241,7 @@ export function calculateModel(
     const evEbitVal = ev / ebit;
 
     // ROIC
-    const nopat = ebit * (1 - medianTaxRate);
+    const nopat = ebit * (1 - taxRateYear);
     const equity = lastHist.equity || marketCap * 0.5; // fallback
     const roe = netIncome / equity;
     const roic = nopat / (equity + Math.abs(netDebt));
