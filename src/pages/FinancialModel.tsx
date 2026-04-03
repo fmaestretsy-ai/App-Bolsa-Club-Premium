@@ -223,7 +223,8 @@ export default function FinancialModel() {
         revenue_growth: newInputs.revenueGrowth,
         ebit_margin: newInputs.ebitMargin,
         tax_rate: newInputs.taxRate,
-        share_growth_first: newInputs.shareGrowthFirst,
+        share_growth: newInputs.shareGrowth,
+        minority_interests_pct: newInputs.minorityInterestsPct,
         wc_sales: newInputs.wcSales,
         net_debt_ebitda: newInputs.netDebtEbitda,
       };
