@@ -542,6 +542,7 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
     companyName: detectedName,
     ticker: detectedTicker,
     sector: summaryData.sector,
+    currency: detectedCurrency,
     periods,
     projectedPeriods,
     targetPrice5y: summaryData.targetPrice5y,
