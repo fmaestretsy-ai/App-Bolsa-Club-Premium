@@ -362,11 +362,7 @@ export default function FinancialModel() {
                   histValues={histGrowth("revenue")}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.revenueGrowth[y] ?? 0.10} format="percent"
-                      onChange={v => updateInput(prev => {
-                        const updated: Record<number, number> = {};
-                        pYears.forEach(yr => { updated[yr] = v; });
-                        return { ...prev, revenueGrowth: updated };
-                      })}
+                      onChange={v => updatePerYear('revenueGrowth', y, v)}
                     />
                   ))}
                 />
