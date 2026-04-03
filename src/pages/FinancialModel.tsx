@@ -78,7 +78,7 @@ const fmt = (v: number | null | undefined) => {
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v) || !isFinite(v)) return "—";
-  return `${(v * 100).toFixed(1)}%`;
+  return `${Math.round(v * 100)}%`;
 };
 const pctC = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "";
