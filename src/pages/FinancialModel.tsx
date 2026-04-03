@@ -150,11 +150,15 @@ function Row({
       <td className={`p-1.5 sticky left-0 bg-card z-10 ${isSubRow ? "pl-6 text-muted-foreground italic" : "text-foreground"} text-xs`}>
         {label}
       </td>
-      {histValues.map((v, i) => (
-        <td key={i} className={`text-right p-1.5 text-xs ${isPercent ? pctColor(v as number) : "text-foreground"}`}>
-          {isPercent ? pct(v as number) : fmt(v as number)}
-        </td>
-      ))}
+      {histValues.map((v, i) => {
+        const val = v as number;
+        const isNeg = val != null && !isNaN(val) && val < 0;
+        return (
+          <td key={i} className={`text-right p-1.5 text-xs ${isPercent ? pctColor(val) : isNeg ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
+            {isPercent ? pct(val) : fmt(val)}
+          </td>
+        );
+      })}
       {projValues.map((v, i) => (
         <td key={`p${i}`} className="text-right p-1.5 text-xs bg-blue-50/20 dark:bg-blue-950/10">
           {v}
