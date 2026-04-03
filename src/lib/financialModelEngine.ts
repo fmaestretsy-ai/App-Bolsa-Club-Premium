@@ -467,7 +467,11 @@ export function periodsToHistorical(periods: any[]): HistoricalData[] {
       ebitMargin: ebit && p.revenue ? ebit / p.revenue : null,
       netMargin: p.margin_net,
       capex: p.capex,
-      workingCapital: null,
+      inventories: p.inventories ?? null,
+      accountsReceivable: p.accounts_receivable ?? null,
+      accountsPayable: p.accounts_payable ?? null,
+      unearnedRevenue: p.unearned_revenue ?? null,
+      workingCapital: null, // will be computed below
       totalDebt: p.total_debt,
       cash: p.cash,
       netDebt: p.net_debt,
