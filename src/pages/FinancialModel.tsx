@@ -4,41 +4,35 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCompanies, useFinancialPeriods, useCompanyAssumptions } from "@/hooks/useCompanyData";
+import { useCompanies } from "@/hooks/useCompanyData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import {
-  calculateModel, extractModelInputs, periodsToHistorical,
-  type ModelInputs, type ModelResult,
-} from "@/lib/financialModelEngine";
+import { useQuery } from "@tanstack/react-query";
 import { EmptyState } from "@/components/EmptyState";
 import { Calculator } from "lucide-react";
-import { parseExcelFile } from "@/lib/excelParser";
-
-type HistoricalPeriod = ReturnType<typeof periodsToHistorical>[number];
+import * as XLSX from "xlsx";
+import { extractTikrData, extractManualInputs, type TikrModelInputs } from "@/lib/tikrExtractor";
+import { calculateFullModel, type FullModelResult, type YC } from "@/lib/tikrCalculations";
 
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
-  value, onChange, format = "number", className = "",
+  value, onChange, format = "number",
 }: {
   value: number;
   onChange: (v: number) => void;
   format?: "number" | "percent" | "decimal";
-  className?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [raw, setRaw] = useState("");
 
   const display = format === "percent"
-    ? `${Math.round(value * 100)}%`
+    ? `${(value * 100).toFixed(1)}%`
     : format === "decimal"
     ? value.toFixed(1)
     : Math.round(value).toLocaleString();
 
   const handleStart = () => {
-    setRaw(format === "percent" ? String(Math.round(value * 100)) : String(value));
+    setRaw(format === "percent" ? (value * 100).toFixed(1) : String(value));
     setEditing(true);
   };
 
@@ -65,7 +59,7 @@ function EditableCell({
 
   return (
     <span
-      className={`cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 px-1 rounded text-orange-600 dark:text-orange-400 font-semibold ${className}`}
+      className="cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 px-1 rounded text-orange-600 dark:text-orange-400 font-semibold"
       onClick={handleStart}
       title="Click para editar"
     >
@@ -77,6 +71,7 @@ function EditableCell({
 /* ─── Format helpers ─── */
 const fmt = (v: number | null | undefined, decimals = 0) => {
   if (v == null || isNaN(v)) return "—";
+  if (!isFinite(v)) return "—";
   if (v < 0) {
     const abs = decimals === 0 ? Math.round(Math.abs(v)).toLocaleString() : Math.abs(v).toFixed(decimals);
     return `(${abs})`;
@@ -84,17 +79,16 @@ const fmt = (v: number | null | undefined, decimals = 0) => {
   if (decimals === 0) return Math.round(v).toLocaleString();
   return v.toFixed(decimals);
 };
-// Projected value with red color for negatives
-const fmtP = (v: number | null | undefined) => {
-  if (v == null || isNaN(v)) return "—";
+const fmtN = (v: number | null | undefined) => {
+  if (v == null || isNaN(v) || !isFinite(v)) return "—";
   if (v < 0) return <span className="text-red-500 dark:text-red-400">({Math.round(Math.abs(v)).toLocaleString()})</span>;
   return Math.round(v).toLocaleString();
 };
 const pct = (v: number | null | undefined) => {
-  if (v == null || isNaN(v)) return "—";
-  return `${Math.round(v * 100)}%`;
+  if (v == null || isNaN(v) || !isFinite(v)) return "—";
+  return `${(v * 100).toFixed(1)}%`;
 };
-const pctColor = (v: number | null | undefined) => {
+const pctC = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "";
   return v >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400";
 };
@@ -102,14 +96,16 @@ const fmtX = (v: number | null | undefined) => {
   if (v == null || isNaN(v) || !isFinite(v)) return "—";
   return v.toFixed(1) + "x";
 };
+const s = (n: number, d: number) => d !== 0 && isFinite(d) ? n / d : 0;
 
-/* ─── Table shell ─── */
+/* ─── Table shell with optional median col ─── */
 function ModelTable({
-  children, historicalYears, projectedYears, subtitle,
+  children, histYears, projYears, showMedian = false, subtitle,
 }: {
   children: React.ReactNode;
-  historicalYears: number[];
-  projectedYears: number[];
+  histYears: number[];
+  projYears: number[];
+  showMedian?: boolean;
   subtitle?: string;
 }) {
   return (
@@ -117,15 +113,16 @@ function ModelTable({
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr className="border-b-2 border-border bg-muted/50">
-            <th className="text-left p-2 min-w-[220px] sticky left-0 bg-muted/50 z-10 text-muted-foreground text-xs font-medium">
+            <th className="text-left p-2 min-w-[200px] sticky left-0 bg-muted/50 z-10 text-muted-foreground text-xs font-medium">
               {subtitle || "(millones)"}
             </th>
-            {historicalYears.map(y => (
-              <th key={y} className="text-right p-2 min-w-[85px] text-muted-foreground font-medium">{y}</th>
+            {histYears.map(y => (
+              <th key={y} className="text-right p-2 min-w-[80px] text-muted-foreground font-medium">{y}</th>
             ))}
-            {projectedYears.map(y => (
-              <th key={y} className="text-right p-2 min-w-[85px] font-medium bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400">{y}e</th>
+            {projYears.map(y => (
+              <th key={y} className="text-right p-2 min-w-[80px] font-medium bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400">{y}e</th>
             ))}
+            {showMedian && <th className="text-right p-2 min-w-[70px] font-medium bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400">Med.</th>}
           </tr>
         </thead>
         <tbody>{children}</tbody>
@@ -135,36 +132,45 @@ function ModelTable({
 }
 
 function Row({
-  label, histValues, projValues, isSubRow = false, isBold = false, isPercent = false, isSeparator = false, decimals = 0,
+  label, values, isPercent = false, isBold = false, isSubRow = false, isSeparator = false, decimals = 0,
+  projStart = 0, medianVal, isMultiple = false, renderCell,
 }: {
   label: string;
-  histValues: (number | null | undefined)[];
-  projValues: (React.ReactNode)[];
-  isSubRow?: boolean;
-  isBold?: boolean;
+  values: (number | null | undefined | React.ReactNode)[];
   isPercent?: boolean;
+  isBold?: boolean;
+  isSubRow?: boolean;
   isSeparator?: boolean;
   decimals?: number;
+  projStart?: number;
+  medianVal?: number | null;
+  isMultiple?: boolean;
+  renderCell?: (val: unknown, idx: number) => React.ReactNode;
 }) {
   return (
     <tr className={`border-b border-border/30 ${isSeparator ? "border-t-2 border-t-border" : ""} ${isBold ? "font-semibold bg-muted/20" : ""}`}>
       <td className={`p-1.5 sticky left-0 bg-card z-10 ${isSubRow ? "pl-6 text-muted-foreground italic" : "text-foreground"} text-xs`}>
         {label}
       </td>
-      {histValues.map((v, i) => {
-        const val = v as number;
-        const isNeg = val != null && !isNaN(val) && val < 0;
+      {values.map((v, i) => {
+        if (renderCell) return <td key={i} className={`text-right p-1.5 text-xs ${i >= projStart ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>{renderCell(v, i)}</td>;
+        // React elements (EditableCell etc)
+        if (v != null && typeof v === "object") return <td key={i} className={`text-right p-1.5 text-xs ${i >= projStart ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>{v}</td>;
+        const num = v as number | null | undefined;
+        const isNeg = num != null && typeof num === "number" && num < 0;
+        const cl = isPercent ? pctC(num) : isNeg ? "text-red-500 dark:text-red-400" : "";
+        const display = isMultiple ? fmtX(num) : isPercent ? pct(num) : fmt(num, decimals);
         return (
-          <td key={i} className={`text-right p-1.5 text-xs ${isPercent ? pctColor(val) : isNeg ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
-            {isPercent ? pct(val) : fmt(val, decimals)}
+          <td key={i} className={`text-right p-1.5 text-xs ${cl} ${i >= projStart ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
+            {display}
           </td>
         );
       })}
-      {projValues.map((v, i) => (
-        <td key={`p${i}`} className="text-right p-1.5 text-xs bg-blue-50/20 dark:bg-blue-950/10">
-          {v}
+      {medianVal !== undefined && (
+        <td className="text-right p-1.5 text-xs bg-amber-50/20 dark:bg-amber-950/10 font-semibold">
+          {isMultiple ? fmtX(medianVal) : isPercent ? pct(medianVal) : fmt(medianVal, decimals)}
         </td>
-      ))}
+      )}
     </tr>
   );
 }
@@ -183,16 +189,14 @@ function SectionHeader({ label, colSpan }: { label: string; colSpan: number }) {
 export default function FinancialModel() {
   useTranslation();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const { data: companies = [] } = useCompanies();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
 
   const companyId = selectedCompanyId || companies[0]?.id || "";
-  const { data: periods = [] } = useFinancialPeriods(companyId || undefined);
-  const { data: assumptions } = useCompanyAssumptions(companyId || undefined);
-  const company = companies.find(c => c.id === companyId);
-  const { data: parsedExcel } = useQuery({
-    queryKey: ["model-excel", companyId],
+
+  // Load Excel and extract TIKR data
+  const { data: tikrBundle } = useQuery({
+    queryKey: ["tikr-model", companyId],
     enabled: !!user && !!companyId,
     queryFn: async () => {
       const { data: upload, error } = await supabase
@@ -202,212 +206,82 @@ export default function FinancialModel() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-
       if (error) throw error;
-      if (!upload?.file_path || !upload.file_name) return null;
+      if (!upload?.file_path) return null;
 
-      const { data: file, error: downloadError } = await supabase.storage
+      const { data: file, error: dlErr } = await supabase.storage
         .from("excel-uploads")
         .download(upload.file_path);
+      if (dlErr) throw dlErr;
 
-      if (downloadError) throw downloadError;
-
-      return parseExcelFile(await file.arrayBuffer(), upload.file_name);
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const raw = extractTikrData(wb);
+      const inputs = extractManualInputs(wb);
+      if (!raw || !inputs) return null;
+      return { raw, inputs };
     },
   });
 
-  const currentYear = new Date().getFullYear();
-  const projectionYears = useMemo(() => {
-    const lastHistYear = periods.length > 0
-      ? Math.max(...periods.map(p => p.fiscal_year))
-      : currentYear;
-    return [lastHistYear + 1, lastHistYear + 2, lastHistYear + 3, lastHistYear + 4, lastHistYear + 5];
-  }, [periods, currentYear]);
+  const [localInputs, setLocalInputs] = useState<TikrModelInputs | null>(null);
 
-  const historical = useMemo(() => periodsToHistorical(periods), [periods]);
-  const historicalYears = useMemo(() => historical.map(h => h.fiscalYear).sort((a, b) => a - b), [historical]);
-  const projectedFromExcel = useMemo(
-    () => {
-      if (!parsedExcel?.projectedPeriods) return [];
-      // Convert camelCase ParsedPeriod to snake_case expected by periodsToHistorical
-      const converted = parsedExcel.projectedPeriods.map(p => ({
-        fiscal_year: p.fiscalYear,
-        revenue: p.revenue,
-        ebitda: p.ebitda,
-        ebit: p.ebit,
-        net_income: p.netIncome,
-        fcf: p.fcf,
-        diluted_shares: p.dilutedShares,
-        eps: p.eps,
-        margin_ebitda: p.marginEbitda,
-        margin_net: p.marginNet,
-        margin_fcf: p.marginFcf,
-        total_debt: p.totalDebt,
-        cash: p.cash,
-        net_debt: p.netDebt,
-        capex: p.capex,
-        roe: p.roe,
-        roic: p.roic,
-        bvps: p.bvps,
-        fcf_per_share: p.fcfPerShare,
-        pe_ratio: p.peRatio,
-        ev_ebitda: p.evEbitda,
-        p_fcf: p.pFcf,
-        revenue_growth: p.revenueGrowth,
-        net_income_growth: p.netIncomeGrowth,
-        fcf_growth: p.fcfGrowth,
-        dividend_per_share: p.dividendPerShare,
-        interest_expense: p.interestExpense,
-        interest_income: p.interestIncome,
-        tax_expense: p.taxExpense,
-        inventories: p.inventories,
-        accounts_receivable: p.accountsReceivable,
-        accounts_payable: p.accountsPayable,
-        unearned_revenue: p.unearnedRevenue,
-      }));
-      return periodsToHistorical(converted);
-    },
-    [parsedExcel]
-  );
-
-  const [localInputs, setLocalInputs] = useState<ModelInputs | null>(null);
-
-  const modelInputs = useMemo(() => {
-    if (localInputs) return localInputs;
-    return extractModelInputs(
-      { ...assumptions, current_price: company?.current_price },
-      projectionYears
-    );
-  }, [assumptions, company, projectionYears, localInputs]);
-
-  const result = useMemo<ModelResult>(() => {
-    if (historical.length === 0) {
-      return { projected: [], targetPrices: [], priceFor15Return: 0, differenceVsCurrent: 0, cagr5y: {} };
-    }
-    return calculateModel(historical, modelInputs, projectionYears);
-  }, [historical, modelInputs, projectionYears]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (newInputs: ModelInputs) => {
-      if (!companyId || !user) return;
-      const customParams = {
-        revenue_growth: newInputs.revenueGrowth,
-        ebit_margin: newInputs.ebitMargin,
-        tax_rate: newInputs.taxRate,
-        share_growth: newInputs.shareGrowth,
-        minority_interests_pct: newInputs.minorityInterestsPct,
-        capex_sales_ratio: newInputs.capexSalesRatio,
-        wc_sales: newInputs.wcSales,
-        net_debt_ebitda: newInputs.netDebtEbitda,
-      };
-
-      const { data: existing } = await supabase
-        .from("company_assumptions")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const payload = {
-        custom_params: customParams,
-        target_pe: newInputs.targetPer,
-        fcf_multiple: newInputs.targetEvFcf,
-        ev_ebitda_multiple: newInputs.targetEvEbitda,
-        ev_ebit_multiple: newInputs.targetEvEbit,
-        target_return_rate: newInputs.targetReturnRate * 100,
-      };
-
-      if (existing) {
-        await supabase.from("company_assumptions").update(payload).eq("id", existing.id);
-      } else {
-        await supabase.from("company_assumptions").insert({
-          ...payload,
-          company_id: companyId,
-          user_id: user.id,
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assumptions", companyId] });
-      toast.success("Modelo guardado");
-    },
-  });
-
-  const updateInput = useCallback((updater: (prev: ModelInputs) => ModelInputs) => {
-    const newInputs = updater(modelInputs);
-    setLocalInputs(newInputs);
-    saveMutation.mutate(newInputs);
-  }, [modelInputs, saveMutation]);
-
-  /** Update a per-year Record field: sets the edited year + all subsequent years to the new value */
-  const updatePerYear = useCallback((
-    field: 'revenueGrowth' | 'ebitMargin' | 'taxRate' | 'shareGrowth' | 'netDebtEbitda' | 'minorityInterestsPct' | 'capexSalesRatio' | 'wcSales',
-    editedYear: number,
-    value: number,
-  ) => {
-    updateInput(prev => {
-      const updated = { ...prev[field] };
-      pYearsRef.forEach(y => {
-        if (y >= editedYear) updated[y] = value;
-      });
-      return { ...prev, [field]: updated };
-    });
-  }, [updateInput]);
-
-  // Stable ref for pYears to avoid stale closures
-  const pYearsRef = projectionYears;
-
+  // When company changes, reset local inputs
   const handleCompanyChange = (id: string) => {
     setSelectedCompanyId(id);
     setLocalInputs(null);
   };
 
-  if (companies.length === 0) {
+  const inputs = localInputs || tikrBundle?.inputs || null;
+  const raw = tikrBundle?.raw || null;
+
+  const result = useMemo<FullModelResult | null>(() => {
+    if (!raw || !inputs) return null;
+    return calculateFullModel(raw, inputs);
+  }, [raw, inputs]);
+
+  const updateInput = useCallback((updater: (prev: TikrModelInputs) => TikrModelInputs) => {
+    if (!inputs) return;
+    setLocalInputs(updater(inputs));
+  }, [inputs]);
+
+  if (companies.length === 0 || !result) {
     return (
       <DashboardLayout>
-        <EmptyState
-          icon={<Calculator className="h-7 w-7" />}
-          title="Sin datos"
-          description="Sube un Excel para ver el modelo financiero"
-        />
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-foreground">Modelo Financiero</h1>
+            {companies.length > 0 && (
+              <Select value={companyId} onValueChange={handleCompanyChange}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecciona empresa" /></SelectTrigger>
+                <SelectContent>
+                  {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.ticker} — {c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <EmptyState icon={<Calculator className="h-7 w-7" />} title="Sin datos" description="Sube un Excel con datos TIKR para ver el modelo financiero" />
+        </div>
       </DashboardLayout>
     );
   }
 
-  const hYears = historicalYears;
-  const pYears = projectionYears;
-  const totalCols = 1 + hYears.length + pYears.length;
+  const { hist, proj, medians, targetPrices, cagr5y, safetyMargins, buyPrice, buyPriceVsCurrent, redFlagCounts, projTaxRate } = result;
+  const hYears = hist.map(h => h.year);
+  const pYears = proj.map(p => p.year);
+  const N = hist.length;
+  const totalCols = 1 + N + pYears.length + 1; // +1 for median
 
-  // Helper to get historical growth
-  const histGrowth = (field: keyof ReturnType<typeof periodsToHistorical>[0]) => {
-    return hYears.map((y, i) => {
-      if (i === 0) return null;
-      const curr = historical.find(h => h.fiscalYear === y)?.[field] as number | null;
-      const prev = historical.find(h => h.fiscalYear === hYears[i - 1])?.[field] as number | null;
-      return curr != null && prev != null && prev !== 0 ? (curr - prev) / Math.abs(prev) : null;
-    });
-  };
+  // Helper: hist values for a field
+  const hv = (field: keyof YC) => hist.map(h => h[field] as number);
+  const pv = (field: keyof YC) => proj.map(p => p[field] as number);
+  const all = (field: keyof YC) => [...hv(field), ...pv(field)];
 
-  const getHist = (field: keyof ReturnType<typeof periodsToHistorical>[0]) => {
-    return hYears.map(y => historical.find(h => h.fiscalYear === y)?.[field] as number | null);
-  };
-
-  const getProjectedExcelValue = (year: number, field: keyof HistoricalPeriod) => {
-    return projectedFromExcel.find((p) => p.fiscalYear === year)?.[field] as number | null | undefined;
-  };
-
-  const getProjectedDisplay = (
-    year: number,
-    calculatedValue: number | null | undefined,
-    field: keyof HistoricalPeriod,
-    options?: { decimals?: number; negative?: boolean }
-  ) => {
-    const excelValue = getProjectedExcelValue(year, field);
-    const value = excelValue ?? calculatedValue;
-    if (value == null || Number.isNaN(value)) return "—";
-    if (options?.decimals != null) return <span>{value.toFixed(options.decimals)}</span>;
-    return options?.negative ? fmtP(value) : fmt(value);
-  };
+  // Growth helper
+  const histGrowth = (field: keyof YC) => hist.map((h, i) => {
+    if (i === 0) return null;
+    const prev = hist[i - 1][field] as number;
+    const curr = h[field] as number;
+    return prev !== 0 ? (curr - prev) / Math.abs(prev) : null;
+  });
 
   return (
     <DashboardLayout>
@@ -415,183 +289,88 @@ export default function FinancialModel() {
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold text-foreground">Modelo Financiero</h1>
           <Select value={companyId} onValueChange={handleCompanyChange}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Selecciona empresa" />
-            </SelectTrigger>
+            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecciona empresa" /></SelectTrigger>
             <SelectContent>
-              {companies.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.ticker} — {c.name}</SelectItem>
-              ))}
+              {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.ticker} — {c.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Las celdas en <span className="text-orange-500 font-semibold">naranja</span> son editables (ajustes manuales) — haz clic para modificar.
+          Las celdas en <span className="text-orange-500 font-semibold">naranja</span> son editables — haz clic para modificar.
         </p>
 
         <Tabs defaultValue="is" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="is">1. IS</TabsTrigger>
             <TabsTrigger value="fcf">2. FCF</TabsTrigger>
             <TabsTrigger value="roic">3. ROIC</TabsTrigger>
             <TabsTrigger value="val">4. Valoración</TabsTrigger>
+            <TabsTrigger value="rf">5. Red Flags</TabsTrigger>
           </TabsList>
 
           {/* ═══════════════ 1. INCOME STATEMENT ═══════════════ */}
           <TabsContent value="is">
             <Card className="p-4">
-              <ModelTable historicalYears={hYears} projectedYears={pYears} subtitle="(millones, excepto EPS)">
-                {/* Sales */}
-                <Row label="Sales" isBold
-                  histValues={getHist("revenue")}
-                  projValues={result.projected.map(p => fmt(p.revenue))}
+              <ModelTable histYears={hYears} projYears={pYears} subtitle="(millones, excepto EPS)">
+                <Row label="Sales" isBold values={all("sales")} projStart={N} />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[
+                    ...histGrowth("sales"),
+                    ...pYears.map((_, j) => (
+                      <EditableCell key={j} value={inputs!.growthRates[j] ?? 0.10} format="percent"
+                        onChange={v => updateInput(p => {
+                          const gr = [...p.growthRates]; gr[j] = v;
+                          for (let k = j + 1; k < 5; k++) gr[k] = v;
+                          return { ...p, growthRates: gr };
+                        })}
+                      />
+                    )),
+                  ]}
                 />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("revenue")}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.revenueGrowth[y] ?? 0.10} format="percent"
-                      onChange={v => updatePerYear('revenueGrowth', y, v)}
-                    />
-                  ))}
+                <Row label="EBITDA" isBold values={all("ebitda")} projStart={N} />
+                <Row label="    EBITDA margin %" isSubRow isPercent projStart={N}
+                  values={[...hist.map(h => s(h.ebitda, h.sales)), ...proj.map(p => s(p.ebitda, p.sales))]}
                 />
-                {/* EBITDA */}
-                <Row label="EBITDA" isBold
-                  histValues={getHist("ebitda")}
-                  projValues={result.projected.map(p => fmt(p.ebitda))}
+                <Row label="D&A" values={all("da")} projStart={N} />
+                <Row label="EBIT" isBold values={all("ebit")} projStart={N} />
+                <Row label="    EBIT margin %" isSubRow isPercent projStart={N}
+                  values={[
+                    ...hist.map(h => s(h.ebit, h.sales)),
+                    ...pYears.map((_, j) => (
+                      <EditableCell key={j} value={inputs!.ebitMarginEst[j] ?? 0.30} format="percent"
+                        onChange={v => updateInput(p => {
+                          const em = [...p.ebitMarginEst]; em[j] = v;
+                          for (let k = j + 1; k < 5; k++) em[k] = v;
+                          return { ...p, ebitMarginEst: em };
+                        })}
+                      />
+                    )),
+                  ]}
                 />
-                <Row label="    EBITDA margin %" isSubRow isPercent
-                  histValues={getHist("ebitdaMargin")}
-                  projValues={result.projected.map(p => pct(p.ebitdaMargin))}
+                <Row label="Interest Expense" values={all("intExp")} projStart={N} />
+                <Row label="Interest Income" values={all("intInc")} projStart={N} />
+                <Row label="Total Interest" values={all("totalInt")} projStart={N} />
+                <Row label="EBT" isBold values={all("ebt")} projStart={N} />
+                <Row label="Tax Expense" values={all("tax")} projStart={N} />
+                <Row label="    Tax rate %" isSubRow isPercent values={all("taxRate")} projStart={N} />
+                <Row label="Consol. Net Income" values={all("consolNI")} projStart={N} />
+                <Row label="Minority Interest" values={all("mi")} projStart={N} />
+                <Row label="Net Income" isBold isSeparator values={all("netIncome")} projStart={N} />
+                <Row label="    Net margin %" isSubRow isPercent projStart={N}
+                  values={[...hist.map(h => s(h.netIncome, h.sales)), ...proj.map(p => s(p.netIncome, p.sales))]}
                 />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("ebitda")}
-                  projValues={result.projected.map(p => <span className={pctColor(p.ebitdaGrowth)}>{pct(p.ebitdaGrowth)}</span>)}
-                />
-                {/* D&A - negative */}
-                <Row label="Depreciation & Amortization"
-                  histValues={getHist("da")}
-                  projValues={result.projected.map(p => fmtP(p.da))}
-                />
-                {/* EBIT */}
-                <Row label="EBIT" isBold
-                  histValues={getHist("ebit")}
-                  projValues={result.projected.map(p => fmt(p.ebit))}
-                />
-                <Row label="    EBIT margin %" isSubRow isPercent
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.ebit && h?.revenue ? h.ebit / h.revenue : null;
-                  })}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.ebitMargin[y] ?? 0.30} format="percent"
-                      onChange={v => updatePerYear('ebitMargin', y, v)}
-                    />
-                  ))}
-                />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("ebit")}
-                  projValues={result.projected.map(p => <span className={pctColor(p.ebitGrowth)}>{pct(p.ebitGrowth)}</span>)}
-                />
-                {/* Interest Expense */}
-                <Row label="Interest Expense"
-                  histValues={getHist("interestExpense")}
-                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.interestExpense, "interestExpense", { negative: true }))}
-                />
-                {/* Interest Income */}
-                <Row label="Interest Income"
-                  histValues={getHist("interestIncome")}
-                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.interestIncome, "interestIncome"))}
-                />
-                {/* Total Interest */}
-                <Row label="Total Interest expense"
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    if (!h) return null;
-                    return (h.interestExpense ?? 0) + (h.interestIncome ?? 0);
-                  })}
-                  projValues={result.projected.map(p => {
-                    const interestExpense = getProjectedExcelValue(p.year, "interestExpense");
-                    const interestIncome = getProjectedExcelValue(p.year, "interestIncome");
-                    const total = interestExpense != null || interestIncome != null
-                      ? (interestExpense ?? 0) + (interestIncome ?? 0)
-                      : p.totalInterest;
-                    return fmtP(total);
-                  })}
-                />
-                {/* EBT */}
-                <Row label="EBT" isBold
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    if (!h?.ebit) return null;
-                    const totalInt = (h.interestExpense ?? 0) + (h.interestIncome ?? 0);
-                    return h.ebit + totalInt;
-                  })}
-                  projValues={result.projected.map(p => fmt(p.ebt))}
-                />
-                {/* Tax Expense */}
-                <Row label="Tax Expense - en negativo"
-                  histValues={getHist("taxExpense")}
-                  projValues={result.projected.map(p => fmtP(p.taxExpense))}
-                />
-                {/* Tax Rate - ORANGE */}
-                <Row label="    Tax rate %" isSubRow isPercent
-                  histValues={getHist("taxRate")}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.taxRate[y] ?? 0.14} format="percent"
-                      onChange={v => updatePerYear('taxRate', y, v)}
-                    />
-                  ))}
-                />
-                {/* Consolidated Net Income */}
-                <Row label="Consolidated Net Income"
-                  histValues={getHist("netIncome")}
-                  projValues={result.projected.map(p => fmt(p.consolidatedNetIncome))}
-                />
-                {/* Minority Interests - ORANGE */}
-                <Row label="Minority Interests"
-                  histValues={getHist("minorityInterests")}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.minorityInterestsPct[y] ?? 0} format="percent"
-                      onChange={v => updatePerYear('minorityInterestsPct', y, v)}
-                    />
-                  ))}
-                />
-                {/* Net Income */}
-                <Row label="Net Income" isBold isSeparator
-                  histValues={getHist("netIncome")}
-                  projValues={result.projected.map(p => fmt(p.netIncome))}
-                />
-                <Row label="    Net margin %" isSubRow isPercent
-                  histValues={getHist("netMargin")}
-                  projValues={result.projected.map(p => pct(p.netMargin))}
-                />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("netIncome")}
-                  projValues={result.projected.map(p => <span className={pctColor(p.netIncomeGrowth)}>{pct(p.netIncomeGrowth)}</span>)}
-                />
-                {/* EPS */}
-                <Row label="EPS" decimals={2}
-                  histValues={getHist("eps")}
-                  projValues={result.projected.map(p => getProjectedDisplay(p.year, p.eps, "eps", { decimals: 2 }))}
-                />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("eps")}
-                  projValues={result.projected.map(p => <span className={pctColor(p.epsGrowth)}>{pct(p.epsGrowth)}</span>)}
-                />
-                {/* Diluted Shares */}
-                <Row label="Fully diluted shares - millones"
-                  histValues={getHist("dilutedShares")}
-                  projValues={result.projected.map(p => fmt(p.dilutedShares))}
-                />
-                {/* Shares Growth - ORANGE */}
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("dilutedShares")}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.shareGrowth[y] ?? -0.02} format="percent"
-                      onChange={v => updatePerYear('shareGrowth', y, v)}
-                    />
-                  ))}
+                <Row label="EPS" values={all("eps")} projStart={N} decimals={2} />
+                <Row label="Diluted Shares" values={all("shares")} projStart={N} />
+                <Row label="    Share growth %" isSubRow isPercent projStart={N}
+                  values={[
+                    ...histGrowth("shares"),
+                    ...pYears.map((_, j) => (
+                      <EditableCell key={j} value={inputs!.shareDilutionRate} format="percent"
+                        onChange={v => updateInput(p => ({ ...p, shareDilutionRate: v }))}
+                      />
+                    )),
+                  ]}
                 />
               </ModelTable>
             </Card>
@@ -600,209 +379,47 @@ export default function FinancialModel() {
           {/* ═══════════════ 2. FREE CASH FLOW ═══════════════ */}
           <TabsContent value="fcf">
             <Card className="p-4">
-              <ModelTable historicalYears={hYears} projectedYears={pYears} subtitle="(millones, excepto FCF per share)">
-                {/* EBITDA */}
-                <Row label="EBITDA" isBold
-                  histValues={getHist("ebitda")}
-                  projValues={result.projected.map(p => fmt(p.ebitda))}
+              <ModelTable histYears={hYears} projYears={pYears} showMedian subtitle="(millones, excepto FCFPS)">
+                <Row label="EBITDA" isBold values={all("ebitda")} projStart={N} />
+                <Row label="(-) CapEx Mantenimiento" values={all("capexMant")} projStart={N} />
+                <Row label="(-) Total Interest" values={all("totalInt")} projStart={N} />
+                <Row label="(-) Taxes" values={all("tax")} projStart={N} />
+                <Row label="Working Capital" values={all("wc")} projStart={N} />
+                <Row label="(-) Variación WC" values={all("cwc")} projStart={N} />
+                <Row label="Minority Interest" values={all("mi")} projStart={N} />
+                <Row label="Free Cash Flow" isBold isSeparator values={all("fcf")} projStart={N} />
+                <Row label="    FCF margin %" isSubRow isPercent projStart={N}
+                  values={[...hist.map(h => s(h.fcf, h.sales)), ...proj.map(p => s(p.fcf, p.sales))]}
+                  medianVal={medians.fcfMargin}
                 />
-                {/* (-) CapEx Mantenimiento */}
-                <Row label="(-) CapEx Mantenimiento - en negativo"
-                  histValues={hYears.map(y => {
-                    const value = historical.find(h => h.fiscalYear === y)?.capex;
-                    return value != null ? -Math.abs(value) : null;
-                  })}
-                  projValues={result.projected.map(p => {
-                    const excelCapex = getProjectedExcelValue(p.year, "capex");
-                    const value = excelCapex != null ? -Math.abs(excelCapex) : p.capexMaint;
-                    return fmtP(value);
-                  })}
+                <Row label="FCFPS" values={all("fcfps")} projStart={N} decimals={2} />
+                <Row label="Net Change in Cash" values={all("netCashChange")} projStart={N} />
+
+                <SectionHeader label="Eficiencia" colSpan={totalCols} />
+                <Row label="CapEx Mant. / Ventas" isPercent projStart={N}
+                  values={[...hist.map(h => s(Math.abs(h.capexMant), h.sales)), ...proj.map(p => s(Math.abs(p.capexMant), p.sales))]}
+                  medianVal={medians.capexMantToSales}
                 />
-                {/* (-) Total interest expense */}
-                <Row label="(-) Total interest expense"
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    const ie = h?.interestExpense ?? 0;
-                    const ii = h?.interestIncome ?? 0;
-                    return (ie !== 0 || ii !== 0) ? ie + ii : null;
-                  })}
-                  projValues={result.projected.map(p => {
-                    const interestExpense = getProjectedExcelValue(p.year, "interestExpense");
-                    const interestIncome = getProjectedExcelValue(p.year, "interestIncome");
-                    const total = interestExpense != null || interestIncome != null
-                      ? (interestExpense ?? 0) + (interestIncome ?? 0)
-                      : p.totalInterest;
-                    return fmtP(total);
-                  })}
+                <Row label="WC / Ventas" isPercent projStart={N}
+                  values={[...hist.map(h => s(h.wc, h.sales)), ...proj.map(p => s(p.wc, p.sales))]}
+                  medianVal={medians.wcToSales}
                 />
-                {/* (-) Taxes paid */}
-                <Row label="(-) Taxes paid"
-                  histValues={getHist("taxExpense")}
-                  projValues={result.projected.map(p => {
-                    const excelTax = getProjectedExcelValue(p.year, "taxExpense");
-                    return fmtP(excelTax ?? p.taxExpense);
-                  })}
+                <Row label="FCF / Ventas" isPercent projStart={N}
+                  values={[...hist.map(h => s(h.fcf, h.sales)), ...proj.map(p => s(p.fcf, p.sales))]}
+                  medianVal={medians.fcfMargin}
                 />
-                {/* Inventories */}
-                <Row label="Inventories"
-                  histValues={getHist("inventories")}
-                  projValues={result.projected.map(p => {
-                    const v = getProjectedExcelValue(p.year, "inventories");
-                    return v != null ? fmt(v) : "—";
-                  })}
-                />
-                {/* Accounts Receivable */}
-                <Row label="Accounts Receivable"
-                  histValues={getHist("accountsReceivable")}
-                  projValues={result.projected.map(p => {
-                    const v = getProjectedExcelValue(p.year, "accountsReceivable");
-                    return v != null ? fmt(v) : "—";
-                  })}
-                />
-                {/* (-) Accounts Payable */}
-                <Row label="(-) Accounts Payable"
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.accountsPayable != null ? -Math.abs(h.accountsPayable) : null;
-                  })}
-                  projValues={result.projected.map(p => {
-                    const v = getProjectedExcelValue(p.year, "accountsPayable");
-                    return v != null ? fmtP(-Math.abs(v)) : "—";
-                  })}
-                />
-                {/* (-) Unearned Revenue */}
-                <Row label="(-) Unearned Revenue"
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.unearnedRevenue != null ? -Math.abs(h.unearnedRevenue) : null;
-                  })}
-                  projValues={result.projected.map(p => {
-                    const v = getProjectedExcelValue(p.year, "unearnedRevenue");
-                    return v != null ? fmtP(-Math.abs(v)) : "—";
-                  })}
-                />
-                {/* Working Capital total */}
-                <Row label="Working Capital - WC" isBold
-                  histValues={getHist("workingCapital")}
-                  projValues={result.projected.map(p => fmt(p.wc))}
-                />
-                {/* WC / Sales - ORANGE */}
-                <Row label="    WC / Sales %" isSubRow isPercent
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.workingCapital && h?.revenue ? h.workingCapital / h.revenue : null;
-                  })}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.wcSales[y] ?? 0} format="percent"
-                      onChange={v => updatePerYear('wcSales', y, v)}
-                    />
-                  ))}
-                />
-                {/* (-) Variación WC */}
-                <Row label="(-) Variación de Working Capital - CWC"
-                  histValues={hYears.map((y, i) => {
-                    if (i === 0) return null;
-                    const curr = historical.find(h => h.fiscalYear === y)?.workingCapital;
-                    const prev = historical.find(h => h.fiscalYear === hYears[i - 1])?.workingCapital;
-                    return curr != null && prev != null ? curr - prev : null;
-                  })}
-                  projValues={result.projected.map(p => fmtP(p.wcChange))}
-                />
-                {/* (-) Otros ajustes */}
-                <Row label="(-) Otros ajustes"
-                  histValues={hYears.map(() => 0)}
-                  projValues={result.projected.map(() => fmt(0))}
-                />
-                {/* FCF */}
-                <Row label="Free Cash Flow" isBold isSeparator
-                  histValues={getHist("fcf")}
-                  projValues={result.projected.map(p => {
-                    const excelFcf = getProjectedExcelValue(p.year, "fcf");
-                    return fmt(excelFcf ?? p.fcf);
-                  })}
-                />
-                <Row label="FCF Margin %" isSubRow isPercent
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.fcf && h?.revenue ? h.fcf / h.revenue : null;
-                  })}
-                  projValues={result.projected.map(p => pct(p.fcfMargin))}
-                />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={histGrowth("fcf")}
-                  projValues={result.projected.map(p => <span className={pctColor(p.fcfGrowth)}>{pct(p.fcfGrowth)}</span>)}
+                <Row label="Cash Conversion (FCF/EBITDA)" isPercent projStart={N}
+                  values={[...hist.map(h => s(h.fcf, h.ebitda)), ...proj.map(p => s(p.fcf, p.ebitda))]}
+                  medianVal={medians.cashConversion}
                 />
 
-                {/* Net Change in Cash */}
-                <SectionHeader label="Net Change in Cash" colSpan={totalCols} />
-                <Row label="Free Cash Flow"
-                  histValues={getHist("fcf")}
-                  projValues={result.projected.map(p => fmt(p.fcf))}
-                />
-                <Row label="(-) CapEx Expansión"
-                  histValues={hYears.map(() => null)}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(-) Acquisitions"
-                  histValues={hYears.map(() => null)}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(-) Dividends"
-                  histValues={hYears.map(() => null)}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(-) Share Buybacks"
-                  histValues={hYears.map(() => null)}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(-) Debt Repayment"
-                  histValues={hYears.map(() => null)}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="Net Change in Cash" isBold isSeparator
-                  histValues={hYears.map(() => null)}
-                  projValues={result.projected.map(() => "—")}
-                />
-
-                {/* FCFPS */}
-                <SectionHeader label="Free Cash Flow per share" colSpan={totalCols} />
-                <Row label="Free Cash Flow per share - FCFPS"
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.fcf && h?.dilutedShares ? h.fcf / h.dilutedShares : null;
-                  })}
-                  projValues={result.projected.map(p => <span>{p.fcfps.toFixed(2)}</span>)}
-                />
-                <Row label="    Y/Y Growth %" isSubRow isPercent
-                  histValues={hYears.map((y, i) => {
-                    if (i === 0) return null;
-                    const curr = historical.find(h => h.fiscalYear === y);
-                    const prev = historical.find(h => h.fiscalYear === hYears[i - 1]);
-                    const c = curr?.fcf && curr?.dilutedShares ? curr.fcf / curr.dilutedShares : null;
-                    const p = prev?.fcf && prev?.dilutedShares ? prev.fcf / prev.dilutedShares : null;
-                    return c != null && p != null && p !== 0 ? (c - p) / Math.abs(p) : null;
-                  })}
-                  projValues={result.projected.map(p => <span className={pctColor(p.fcfpsGrowth)}>{pct(p.fcfpsGrowth)}</span>)}
-                />
-
-                {/* Efficiency section */}
-                <SectionHeader label="Eficiencia y márgenes" colSpan={totalCols} />
-                {/* FCF/Sales */}
-                <Row label="FCF / Ventas (FCF Margin)" isPercent
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.fcf && h?.revenue ? h.fcf / h.revenue : null;
-                  })}
-                  projValues={result.projected.map(p => pct(p.fcfMargin))}
-                />
-                {/* Cash Conversion */}
-                <Row label="Conversión en Caja (EBITDA → FCF)" isPercent
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.fcf && h?.ebitda ? h.fcf / h.ebitda : null;
-                  })}
-                  projValues={result.projected.map(p => pct(p.cashConversion))}
-                />
+                <SectionHeader label="Asignación de capital (% FCF)" colSpan={totalCols} />
+                <Row label="CapEx Expansión" isPercent values={hv("capexExpPct")} projStart={N} medianVal={medians.capexExpPct} />
+                <Row label="Adquisiciones" isPercent values={hv("acqPct")} projStart={N} medianVal={medians.acqPct} />
+                <Row label="Dividendos" isPercent values={hv("divPct")} projStart={N} medianVal={medians.divPct} />
+                <Row label="Recompras" isPercent values={hv("buybackPct")} projStart={N} medianVal={medians.buybackPct} />
+                <Row label="Amort. Deuda" isPercent values={hv("debtRepayPct")} projStart={N} medianVal={medians.debtRepayPct} />
+                <Row label="Total" isBold isPercent values={hv("totalAllocPct")} projStart={N} medianVal={medians.totalAllocPct} />
               </ModelTable>
             </Card>
           </TabsContent>
@@ -810,67 +427,21 @@ export default function FinancialModel() {
           {/* ═══════════════ 3. ROIC ═══════════════ */}
           <TabsContent value="roic">
             <Card className="p-4">
-              <ModelTable historicalYears={hYears} projectedYears={pYears}>
-                <Row label="EBIT × (1-t) = NOPAT" isBold
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.ebit ? h.ebit * (1 - (h.taxRate || 0.2)) : null;
-                  })}
-                  projValues={result.projected.map(p => fmt(p.nopat))}
-                />
-                <Row label="Cash and cash equivalents"
-                  histValues={getHist("cash")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(-) Marketable Securities"
-                  histValues={getHist("marketableSecurities")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(+) Short-Term Debt"
-                  histValues={getHist("shortTermDebt")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(+) Long-Term Debt"
-                  histValues={getHist("longTermDebt")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(+) Current Operating Leases"
-                  histValues={getHist("operatingLeasesCurrent")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(+) Non-Current Operating Leases"
-                  histValues={getHist("operatingLeasesNonCurrent")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="(+) Equity"
-                  histValues={getHist("equity")}
-                  projValues={result.projected.map(() => "—")}
-                />
-                <Row label="Invested Capital" isBold isSeparator
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    if (!h) return null;
-                    const cash = h.cash ?? 0;
-                    const mktSec = h.marketableSecurities ?? 0;
-                    const std = h.shortTermDebt ?? 0;
-                    const ltd = h.longTermDebt ?? 0;
-                    const olc = h.operatingLeasesCurrent ?? 0;
-                    const olnc = h.operatingLeasesNonCurrent ?? 0;
-                    const eq = h.equity ?? 0;
-                    return -cash - mktSec + std + ltd + olc + olnc + eq;
-                  })}
-                  projValues={result.projected.map(() => "—")}
-                />
+              <ModelTable histYears={hYears} projYears={pYears} showMedian>
+                <Row label="EBIT × (1-t) = NOPAT" isBold values={all("nopat")} projStart={N} />
+                <Row label="Cash & Equivalents" values={all("cashEq")} projStart={N} />
+                <Row label="Marketable Securities" values={all("mktSec")} projStart={N} />
+                <Row label="ST Debt" values={all("stDebt")} projStart={N} />
+                <Row label="LT Debt" values={all("ltDebt")} projStart={N} />
+                <Row label="Current Leases" values={all("curLeases")} projStart={N} />
+                <Row label="NC Leases" values={all("ncLeases")} projStart={N} />
+                <Row label="Equity" values={all("equity")} projStart={N} />
+                <Row label="Invested Capital" isBold isSeparator values={all("ic")} projStart={N} />
 
                 <SectionHeader label="Ratios de rentabilidad" colSpan={totalCols} />
-                <Row label="ROE" isPercent
-                  histValues={getHist("roe")}
-                  projValues={result.projected.map(p => pct(p.roe))}
-                />
-                <Row label="ROIC" isPercent
-                  histValues={getHist("roic")}
-                  projValues={result.projected.map(p => pct(p.roic))}
-                />
+                <Row label="ROE" isPercent values={all("roe")} projStart={N} medianVal={medians.roe} />
+                <Row label="ROIC" isPercent values={all("roic")} projStart={N} medianVal={medians.roic} />
+                <Row label="Tasa reinversión" isPercent values={hv("reinvRate")} projStart={N} />
               </ModelTable>
             </Card>
           </TabsContent>
@@ -878,103 +449,50 @@ export default function FinancialModel() {
           {/* ═══════════════ 4. VALORACIÓN ═══════════════ */}
           <TabsContent value="val">
             <Card className="p-4 space-y-6">
-              {/* Valoración table */}
-              <ModelTable historicalYears={hYears} projectedYears={pYears} subtitle="Valoración (millones)">
-                <Row label="Market cap" isBold
-                  histValues={getHist("marketCap")}
-                  projValues={result.projected.map(p => fmt(p.marketCap))}
-                />
-                <Row label="Deuda Neta"
-                  histValues={getHist("netDebt")}
-                  projValues={result.projected.map(p => fmt(p.netDebt))}
-                />
-                {/* Deuda neta / EBITDA - ORANGE */}
-                <Row label="    Deuda neta / EBITDA" isSubRow
-                  histValues={hYears.map(y => {
-                    const h = historical.find(h => h.fiscalYear === y);
-                    return h?.netDebt && h?.ebitda ? h.netDebt / h.ebitda : null;
-                  })}
-                  projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.netDebtEbitda[y] ?? 0.3} format="decimal"
-                      onChange={v => updateInput(prev => {
-                        const updated: Record<number, number> = {};
-                        pYears.forEach(yr => { updated[yr] = v; });
-                        return { ...prev, netDebtEbitda: updated };
-                      })}
-                    />
-                  ))}
-                />
-                <Row label="Enterprise Value (EV)" isBold
-                  histValues={getHist("ev")}
-                  projValues={result.projected.map(p => fmt(p.ev))}
-                />
-                <Row label="EBITDA"
-                  histValues={getHist("ebitda")}
-                  projValues={result.projected.map(p => fmt(p.ebitda))}
-                />
-                <Row label="EBIT"
-                  histValues={getHist("ebit")}
-                  projValues={result.projected.map(p => fmt(p.ebit))}
-                />
-                <Row label="Net income"
-                  histValues={getHist("netIncome")}
-                  projValues={result.projected.map(p => fmt(p.netIncome))}
-                />
-                <Row label="FCF"
-                  histValues={getHist("fcf")}
-                  projValues={result.projected.map(p => fmt(p.fcf))}
-                />
+              <ModelTable histYears={hYears} projYears={pYears} showMedian subtitle="Valoración (millones)">
+                <Row label="Market Cap" isBold values={all("mktCap")} projStart={N} />
+                <Row label="Deuda Neta" values={all("netDebt")} projStart={N} medianVal={null} />
+                <Row label="    Deuda / EBITDA" isSubRow values={[...hist.map(h => s(h.netDebt, h.ebitda)), ...proj.map(p => s(p.netDebt, p.ebitda))]} projStart={N} decimals={1} medianVal={medians.netDebtToEBITDA} />
+                <Row label="Enterprise Value" isBold values={all("ev")} projStart={N} />
+                <Row label="EBITDA" values={all("ebitda")} projStart={N} />
+                <Row label="EBIT" values={all("ebit")} projStart={N} />
+                <Row label="Net Income" values={all("netIncome")} projStart={N} />
+                <Row label="FCF" values={all("fcf")} projStart={N} />
 
-                {/* Multiples section */}
-                <SectionHeader label="Múltiplos de valoración" colSpan={totalCols} />
-                <Row label="PER"
-                  histValues={getHist("peRatio")}
-                  projValues={result.projected.map(p => fmtX(p.per))}
-                />
-                <Row label="EV / FCF"
-                  histValues={getHist("evFcf")}
-                  projValues={result.projected.map(p => fmtX(p.evFcf))}
-                />
-                <Row label="EV / EBITDA"
-                  histValues={getHist("evEbitda")}
-                  projValues={result.projected.map(p => fmtX(p.evEbitda))}
-                />
-                <Row label="EV / EBIT"
-                  histValues={getHist("evEbit")}
-                  projValues={result.projected.map(p => fmtX(p.evEbit))}
-                />
+                <SectionHeader label="Múltiplos" colSpan={totalCols} />
+                <Row label="PER" isMultiple values={all("per")} projStart={N} medianVal={medians.per} />
+                <Row label="EV / FCF" isMultiple values={all("evFcf")} projStart={N} medianVal={medians.evFcf} />
+                <Row label="EV / EBITDA" isMultiple values={all("evEbitda")} projStart={N} medianVal={medians.evEbitda} />
+                <Row label="EV / EBIT" isMultiple values={all("evEbit")} projStart={N} medianVal={medians.evEbit} />
               </ModelTable>
 
-              {/* Current price & Target multiples - ORANGE */}
+              {/* Price & target multiples */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-border pt-4">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3">Precio por acción actual</h3>
-                  <div className="flex items-center gap-2">
-                    <EditableCell value={modelInputs.currentPrice} format="number"
-                      onChange={v => updateInput(prev => ({ ...prev, currentPrice: v }))}
-                    />
-                    <span className="text-xs text-muted-foreground">$</span>
-                  </div>
+                  <EditableCell value={inputs!.currentPrice} format="number"
+                    onChange={v => updateInput(p => ({ ...p, currentPrice: v }))}
+                  />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3">Múltiplos objetivo</h3>
                   <div className="space-y-2 text-xs">
-                    {[
-                      { label: "PER", key: "targetPer" as const },
-                      { label: "EV / FCF", key: "targetEvFcf" as const },
-                      { label: "EV / EBITDA", key: "targetEvEbitda" as const },
-                      { label: "EV / EBIT", key: "targetEvEbit" as const },
-                    ].map(({ label, key }) => (
+                    {([
+                      ["PER", "targetPER"],
+                      ["EV / FCF", "targetEVFCF"],
+                      ["EV / EBITDA", "targetEVEBITDA"],
+                      ["EV / EBIT", "targetEVEBIT"],
+                    ] as const).map(([label, key]) => (
                       <div key={key} className="flex justify-between items-center">
                         <span className="text-muted-foreground">{label}</span>
-                        <EditableCell value={modelInputs[key]} onChange={v => updateInput(prev => ({ ...prev, [key]: v }))} />
+                        <EditableCell value={inputs![key]} onChange={v => updateInput(p => ({ ...p, [key]: v }))} />
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Target prices table */}
+              {/* Target prices */}
               <div className="border-t border-border pt-4">
                 <h3 className="text-sm font-semibold text-foreground mb-3">Precio objetivo</h3>
                 <div className="overflow-x-auto">
@@ -982,40 +500,29 @@ export default function FinancialModel() {
                     <thead>
                       <tr className="border-b-2 border-border bg-muted/50">
                         <th className="text-left p-2 min-w-[140px] text-muted-foreground">Método</th>
-                        {pYears.map(y => (
-                          <th key={y} className="text-right p-2 min-w-[80px] text-muted-foreground">{y}e</th>
-                        ))}
+                        {pYears.map(y => <th key={y} className="text-right p-2 min-w-[80px] text-muted-foreground">{y}e</th>)}
                         <th className="text-right p-2 min-w-[80px] text-muted-foreground">CAGR 5y</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { label: "PER ex Cash", field: "perExCash" as const, cagrKey: "PER ex Cash" },
-                        { label: "EV / FCF", field: "evFcf" as const, cagrKey: "EV / FCF" },
-                        { label: "EV / EBITDA", field: "evEbitda" as const, cagrKey: "EV / EBITDA" },
-                        { label: "EV / EBIT", field: "evEbit" as const, cagrKey: "EV / EBIT" },
-                        { label: "Promedio", field: "average" as const, cagrKey: "Promedio" },
-                      ].map(({ label, field, cagrKey }) => (
+                      {([
+                        ["PER ex Cash", "perExCash", "PER ex Cash"],
+                        ["EV / FCF", "evFcf", "EV / FCF"],
+                        ["EV / EBITDA", "evEbitda", "EV / EBITDA"],
+                        ["EV / EBIT", "evEbit", "EV / EBIT"],
+                        ["Promedio", "average", "Promedio"],
+                      ] as [string, keyof typeof targetPrices[0], string][]).map(([label, field, cagrKey]) => (
                         <tr key={field} className={`border-b border-border/30 ${field === "average" ? "font-semibold bg-muted/20" : ""}`}>
                           <td className="p-2 text-foreground">{label}</td>
-                          {result.targetPrices.map(tp => (
-                            <td key={tp.year} className="text-right p-2 text-foreground">
-                              {fmt(tp[field])}
-                            </td>
-                          ))}
-                          <td className={`text-right p-2 font-semibold ${pctColor(result.cagr5y[cagrKey])}`}>
-                            {result.cagr5y[cagrKey] != null ? pct(result.cagr5y[cagrKey]) : "—"}
+                          {targetPrices.map(tp => <td key={tp.year} className="text-right p-2">{fmt(tp[field] as number)}</td>)}
+                          <td className={`text-right p-2 font-semibold ${pctC(cagr5y[cagrKey])}`}>
+                            {cagr5y[cagrKey] != null ? pct(cagr5y[cagrKey]) : "—"}
                           </td>
                         </tr>
                       ))}
-                      {/* Margin of safety */}
                       <tr className="border-t-2 border-border font-semibold">
-                        <td className="p-2 text-foreground">Margen de seguridad (EV/FCF)</td>
-                        {result.targetPrices.map(tp => (
-                          <td key={tp.year} className={`text-right p-2 ${pctColor(tp.marginOfSafety)}`}>
-                            {pct(tp.marginOfSafety)}
-                          </td>
-                        ))}
+                        <td className="p-2 text-foreground">Margen de seguridad</td>
+                        {safetyMargins.map((sm, i) => <td key={i} className={`text-right p-2 ${pctC(sm)}`}>{pct(sm)}</td>)}
                         <td></td>
                       </tr>
                     </tbody>
@@ -1023,23 +530,51 @@ export default function FinancialModel() {
                 </div>
               </div>
 
-              {/* Target return - ORANGE */}
+              {/* Buy price */}
               <div className="border-t border-border pt-4 flex flex-wrap items-center gap-6 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Retorno anual objetivo:</span>
-                  <EditableCell value={modelInputs.targetReturnRate} format="percent"
-                    onChange={v => updateInput(prev => ({ ...prev, targetReturnRate: v }))}
+                  <EditableCell value={inputs!.targetReturn} format="percent"
+                    onChange={v => updateInput(p => ({ ...p, targetReturn: v }))}
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Precio compra para ese retorno:</span>
-                  <span className="font-semibold text-foreground">${fmt(result.priceFor15Return)}</span>
+                  <span className="text-muted-foreground">Precio compra:</span>
+                  <span className="font-semibold text-foreground">${fmt(buyPrice)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Diferencia vs precio actual:</span>
-                  <span className={`font-semibold ${pctColor(result.differenceVsCurrent)}`}>
-                    {pct(result.differenceVsCurrent)}
-                  </span>
+                  <span className="text-muted-foreground">vs precio actual:</span>
+                  <span className={`font-semibold ${pctC(buyPriceVsCurrent)}`}>{pct(buyPriceVsCurrent)}</span>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* ═══════════════ 5. RED FLAGS ═══════════════ */}
+          <TabsContent value="rf">
+            <Card className="p-4 space-y-6">
+              <ModelTable histYears={hYears} projYears={[]} subtitle="Red Flags (% ventas)">
+                <Row label="Impairments" isPercent values={hv("impPct")} projStart={N} />
+                <Row label="SBC" isPercent values={hv("sbcPct")} projStart={N} />
+                <Row label="Divestitures" isPercent values={hv("divstPct")} projStart={N} />
+                <Row label="Emisión acciones" isPercent values={hv("issuancePct")} projStart={N} />
+              </ModelTable>
+
+              <div className="border-t border-border pt-4">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Contadores de alertas</h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
+                  {([
+                    ["Ventas decrecientes", redFlagCounts.salesDecline],
+                    ["Margen decreciente", redFlagCounts.marginDecline],
+                    ["FCF negativo", redFlagCounts.negativeFCF],
+                    ["ROIC < 10%", redFlagCounts.poorROIC],
+                    ["Deuda/EBITDA > 2.5x", redFlagCounts.highDebt],
+                  ] as [string, number][]).map(([label, count]) => (
+                    <div key={label} className={`p-3 rounded-lg border ${count > 0 ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30" : "border-border bg-muted/20"}`}>
+                      <div className={`text-lg font-bold ${count > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>{count}</div>
+                      <div className="text-muted-foreground">{label}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </Card>
