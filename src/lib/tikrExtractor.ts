@@ -185,6 +185,15 @@ function findHeader(sheet: unknown[][]): { years: number[]; cols: number[] } {
   return best;
 }
 
+function findSaleIntangiblesValues(sheet: unknown[][], cols: number[]): number[] {
+  const row = sheet.find(r => {
+    const label = String(r?.[0] || "").toLowerCase().trim();
+    return (label.startsWith("sale") || label.startsWith("venta")) && label.includes("intang");
+  }) ?? null;
+
+  return vals(row, cols);
+}
+
 // ─── TIKR raw data extraction ───
 
 export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
