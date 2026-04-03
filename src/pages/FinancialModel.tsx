@@ -488,8 +488,8 @@ export default function FinancialModel() {
                 <Row label="    Y/Y Growth %" isSubRow
                   histValues={histGrowth("dilutedShares")}
                   projValues={pYears.map(y => (
-                    <EditableCell key={y} value={modelInputs.shareGrowthFirst} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, shareGrowthFirst: v }))}
+                    <EditableCell key={y} value={modelInputs.shareGrowth[y] ?? -0.02} format="percent"
+                      onChange={v => updatePerYear('shareGrowth', y, v)}
                     />
                   ))}
                 />
