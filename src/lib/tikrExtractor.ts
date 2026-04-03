@@ -244,6 +244,8 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     debtRepaid: g(cf, cfH, "Total Debt Repaid", "Debt Repaid", "Deuda pagada"),
     netCashChangeHist: g(cf, cfH, "Net Change in Cash", "Cambio neto en efectivo"),
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
+    ebtExclUnusual: g(is, hdr, "EBT Excl. Unusual Items", "EBT Excl Unusual"),
+    ebtInclUnusual: g(is, hdr, "EBT Incl. Unusual Items", "EBT Incl Unusual"),
   };
 
   // ─── Append 2025 from summary sheets (replacing LTM) ───
