@@ -64,8 +64,8 @@ export interface TikrModelInputs {
   growthRates: number[];
   ebitMarginEst: number[];
   shareDilutionRate: number;
-  capexMantToSales: number;
-  wcToSalesEst: number;
+  capexMantToSales: number[];
+  wcToSalesEst: number[];
   netCashChange: number[];
   netDebtToEBITDA: number[];
   currentPrice: number;
