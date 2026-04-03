@@ -29,13 +29,13 @@ function EditableCell({
   const [raw, setRaw] = useState("");
 
   const display = format === "percent"
-    ? `${(value * 100).toFixed(1)}%`
+    ? `${Math.round(value * 100)}%`
     : format === "decimal"
-    ? value.toFixed(2)
+    ? value.toFixed(1)
     : Math.round(value).toLocaleString();
 
   const handleStart = () => {
-    setRaw(format === "percent" ? (value * 100).toFixed(1) : String(value));
+    setRaw(format === "percent" ? String(Math.round(value * 100)) : String(value));
     setEditing(true);
   };
 
@@ -79,7 +79,7 @@ const fmt = (v: number | null | undefined, decimals = 0) => {
 };
 const pct = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "—";
-  return `${(v * 100).toFixed(1)}%`;
+  return `${Math.round(v * 100)}%`;
 };
 const pctColor = (v: number | null | undefined) => {
   if (v == null || isNaN(v)) return "";
@@ -328,7 +328,11 @@ export default function FinancialModel() {
                   histValues={histGrowth("revenue")}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.revenueGrowth[y] ?? 0.10} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, revenueGrowth: { ...prev.revenueGrowth, [y]: v } }))}
+                      onChange={v => updateInput(prev => {
+                        const updated: Record<number, number> = {};
+                        pYears.forEach(yr => { updated[yr] = v; });
+                        return { ...prev, revenueGrowth: updated };
+                      })}
                     />
                   ))}
                 />
@@ -362,7 +366,11 @@ export default function FinancialModel() {
                   })}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.ebitMargin[y] ?? 0.30} format="percent"
-                      onChange={v => updateInput(prev => ({ ...prev, ebitMargin: { ...prev.ebitMargin, [y]: v } }))}
+                      onChange={v => updateInput(prev => {
+                        const updated: Record<number, number> = {};
+                        pYears.forEach(yr => { updated[yr] = v; });
+                        return { ...prev, ebitMargin: updated };
+                      })}
                     />
                   ))}
                 />
@@ -409,7 +417,7 @@ export default function FinancialModel() {
                 <Row label="    Tax rate %" isSubRow isPercent
                   histValues={getHist("taxRate")}
                   projValues={result.projected.map(p => (
-                    <span className="text-orange-600 dark:text-orange-400 font-semibold">{pct(p.taxRate)}</span>
+                    <span className="text-orange-600 dark:text-orange-400 font-semibold">{`${Math.round(p.taxRate * 100)}%`}</span>
                   ))}
                 />
                 {/* Consolidated Net Income */}
@@ -686,10 +694,11 @@ export default function FinancialModel() {
                   })}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.netDebtEbitda[y] ?? 0.3} format="decimal"
-                      onChange={v => updateInput(prev => ({
-                        ...prev,
-                        netDebtEbitda: { ...prev.netDebtEbitda, [y]: v },
-                      }))}
+                      onChange={v => updateInput(prev => {
+                        const updated: Record<number, number> = {};
+                        pYears.forEach(yr => { updated[yr] = v; });
+                        return { ...prev, netDebtEbitda: updated };
+                      })}
                     />
                   ))}
                 />
@@ -789,7 +798,7 @@ export default function FinancialModel() {
                           <td className="p-2 text-foreground">{label}</td>
                           {result.targetPrices.map(tp => (
                             <td key={tp.year} className="text-right p-2 text-foreground">
-                              {fmt(tp[field], 2)}
+                              {fmt(tp[field])}
                             </td>
                           ))}
                           <td className={`text-right p-2 font-semibold ${pctColor(result.cagr5y[cagrKey])}`}>
@@ -822,7 +831,7 @@ export default function FinancialModel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Precio compra para ese retorno:</span>
-                  <span className="font-semibold text-foreground">${fmt(result.priceFor15Return, 2)}</span>
+                  <span className="font-semibold text-foreground">${fmt(result.priceFor15Return)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Diferencia vs precio actual:</span>
