@@ -7,6 +7,7 @@ export interface ModelInputs {
   // IS inputs (per projected year)
   revenueGrowth: Record<number, number>;      // e.g. {2026: 0.15, 2027: 0.13, ...}
   ebitMargin: Record<number, number>;          // e.g. {2026: 0.34, ...}
+  taxRate: number;                             // e.g. 0.14
   shareGrowthFirst: number;                    // e.g. -0.03 (applied to first year, then formula)
   // FCF inputs
   wcSales: number;                             // Working Capital / Sales ratio
@@ -157,9 +158,8 @@ export function calculateModel(
     return { projected: [], targetPrices: [], priceFor15Return: 0, differenceVsCurrent: 0, cagr5y: {} };
   }
 
-  // Tax rate: median of last 3 years
-  const last3TaxRates = sorted.slice(-3).map(h => h.taxRate).filter(v => v != null && v > 0) as number[];
-  const medianTaxRate = last3TaxRates.length > 0 ? median(last3TaxRates) : 0.20;
+  // Tax rate from inputs (user-editable) or median of last 3 years as default
+  const medianTaxRate = inputs.taxRate;
 
   // Interest rates (simplified: use averages from historical)
   const histInterestExpenses = sorted.map(h => h.interestExpense).filter(v => v != null) as number[];
@@ -379,6 +379,7 @@ export function extractModelInputs(
   return {
     revenueGrowth: cp.revenue_growth || defaultGrowths,
     ebitMargin: cp.ebit_margin || defaultMargins,
+    taxRate: cp.tax_rate ?? 0.14,
     shareGrowthFirst: cp.share_growth_first ?? -0.02,
     wcSales: cp.wc_sales ?? 0,
     netDebtEbitda: cp.net_debt_ebitda || defaultNdEbitda,
