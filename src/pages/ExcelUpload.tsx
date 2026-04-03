@@ -282,7 +282,7 @@ export default function ExcelUpload() {
       if (companyId && parsed.ticker) {
         try {
           const { data: priceData } = await supabase.functions.invoke("fetch-stock-price", {
-            body: { ticker: parsed.ticker },
+            body: { ticker: parsed.ticker, currency: parsed.currency ?? 'USD' },
           });
           if (priceData?.success && priceData.data?.price) {
             await supabase.from("companies").update({

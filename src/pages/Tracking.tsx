@@ -71,7 +71,7 @@ export default function Tracking() {
     setRefreshingId(company.id);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-stock-price", {
-        body: { ticker: company.ticker },
+        body: { ticker: company.ticker, currency: company.currency },
       });
       if (error) throw error;
       if (data?.success && data.data?.price) {
