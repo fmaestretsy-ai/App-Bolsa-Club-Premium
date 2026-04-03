@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { ticker } = await req.json();
+    const { ticker, currency } = await req.json();
 
     if (!ticker) {
       return new Response(
@@ -213,8 +213,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Fetching price for:", ticker);
-    const data = await fetchFromGoogleFinance(ticker);
+    console.log("Fetching price for:", ticker, currency ? `(${currency})` : "");
+    const data = await fetchFromGoogleFinance(ticker, currency);
 
     return new Response(
       JSON.stringify({ success: true, data }),
