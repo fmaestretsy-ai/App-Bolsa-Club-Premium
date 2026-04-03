@@ -244,13 +244,21 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   const validTaxRates = hist.slice(-3).map(h => h.taxRate).filter(t => t > 0 && t < 1);
   const projTaxRate = med(validTaxRates);
 
-  // Interest rate averages
-  const totalHistDebt = hist.reduce((sum, h) => sum + h.stDebt + h.ltDebt, 0);
-  const totalHistMktSec = hist.reduce((sum, h) => sum + h.mktSec, 0);
-  const totalHistIntExp = hist.reduce((sum, h) => sum + Math.abs(h.intExp), 0);
-  const totalHistIntInc = hist.reduce((sum, h) => sum + h.intInc, 0);
-  const avgIntExpRate = totalHistDebt > 0 ? totalHistIntExp / totalHistDebt : 0.03;
-  const avgIntIncRate = totalHistMktSec > 0 ? totalHistIntInc / totalHistMktSec : 0.02;
+  // Interest rate averages — use median of per-year rates for robustness
+  const yearlyIntExpRates = hist.map(h => {
+    const debt = h.stDebt + h.ltDebt;
+    return debt > 0 ? Math.abs(h.intExp) / debt : 0;
+  }).filter(r => r > 0 && isFinite(r));
+  const yearlyIntIncRates = hist.map(h => {
+    const totalCash = h.cashEq + h.mktSec;
+    return totalCash > 0 ? h.intInc / totalCash : 0;
+  }).filter(r => r > 0 && isFinite(r));
+  const avgIntExpRate = yearlyIntExpRates.length > 0 ? med(yearlyIntExpRates) : 0.03;
+  const avgIntIncRate = yearlyIntIncRates.length > 0 ? med(yearlyIntIncRates) : 0.02;
+
+  // Use last year's absolute interest values as fallback
+  const lastIntExp = Math.abs(last.intExp);
+  const lastIntInc = last.intInc;
 
   // Minority interest ratio
   const miRatio = last.consolNI !== 0 ? last.mi / last.consolNI : 0;
@@ -288,9 +296,18 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const projLtDebt = grossDebt * ltPct;
     const projCashEq = cashSec * cashPct;
     const projMktSec = cashSec * secPct;
+    const projTotalCash = projCashEq + projMktSec;
 
-    const intExp = -(avgIntExpRate * (projStDebt + projLtDebt));
-    const intInc = avgIntIncRate * projMktSec;
+    // Interest: apply rate to total debt / total cash; fallback to scaling last year's values
+    const projTotalDebt = projStDebt + projLtDebt;
+    const lastTotalDebtVal = lastTotalDebt || 1;
+    const lastTotalCashVal = lastCashPlusSec || 1;
+    const intExp = projTotalDebt > 0
+      ? -(avgIntExpRate * projTotalDebt)
+      : lastIntExp > 0 ? -(lastIntExp * (1 + gr) ** (j + 1)) : 0;
+    const intInc = projTotalCash > 0
+      ? avgIntIncRate * projTotalCash
+      : lastIntInc > 0 ? lastIntInc * (1 + gr) ** (j + 1) : 0;
     const totalInt = intExp + intInc;
 
     const ebt = ebit + totalInt;
