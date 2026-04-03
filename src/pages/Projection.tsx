@@ -131,7 +131,7 @@ export default function Projection() {
                   <BarChart data={projections}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="year" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `$${v.toFixed(0)}`} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${cs}${v.toFixed(0)}`} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
