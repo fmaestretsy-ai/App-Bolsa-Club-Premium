@@ -38,6 +38,7 @@ export interface ParsedFinancialData {
   companyName: string | null;
   ticker: string | null;
   sector: string | null;
+  currency: string | null;
   periods: ParsedPeriod[];
   projectedPeriods: ParsedPeriod[];
   targetPrice5y: number | null;

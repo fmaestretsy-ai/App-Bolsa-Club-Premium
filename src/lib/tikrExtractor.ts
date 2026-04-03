@@ -11,6 +11,7 @@
 import * as XLSX from "xlsx";
 
 export interface TikrRawData {
+  currency: string | null;
   years: number[];
   revenues: number[];
   operatingIncome: number[];
