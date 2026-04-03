@@ -334,7 +334,7 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const assetWD2025 = cfVal("Asset Writedown", "Restructuring Costs");
   const impGW2025 = cfVal("Impairment of Goodwill");
 
-  // ─── Read EBT Excl/Incl from IS LTM column (not CF) ───
+  // ─── Read extraordinary items from IS LTM column ───
   const isSheet = findSheet(wb, "7.TIKR_IS", "TIKR_IS", "tikr_is");
   let isLtmCol = -1;
   for (let r = 0; r < Math.min(5, isSheet.length); r++) {
@@ -349,8 +349,9 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
     const row = findRow(isSheet, ...terms);
     return row && isLtmCol >= 0 ? n(row[isLtmCol]) : 0;
   };
-  const ebtExcl2025 = isLtmVal("EBT, Excl. Unusual Items", "EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
-  const ebtIncl2025 = isLtmVal("EBT, Incl. Unusual Items", "EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
+  const mergerRestr2025 = isLtmVal("Merger & Restructuring", "Merger and Restructuring", "Restructuring Charges");
+  const legalSettl2025 = isLtmVal("Legal Settlements", "Acuerdos legales");
+  const otherUnusual2025 = isLtmVal("Other Unusual Items", "Otros elementos inusuales");
 
   // Append to raw data
   raw.years.push(year2025);
