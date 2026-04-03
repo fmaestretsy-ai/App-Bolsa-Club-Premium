@@ -109,6 +109,10 @@ const ROW_PATTERNS: [RegExp, keyof ParsedPeriod][] = [
   [/^Interest Expense/i, "interestExpense"],
   [/^Interest Income/i, "interestIncome"],
   [/^Tax Expense/i, "taxExpense"],
+  [/^Inventories$/i, "inventories"],
+  [/^Accounts Receivable$/i, "accountsReceivable"],
+  [/^Accounts Payable$/i, "accountsPayable"],
+  [/^Unearned Revenue$/i, "unearnedRevenue"],
 ];
 
 const GROWTH_CONTEXT: Record<string, keyof ParsedPeriod> = {
