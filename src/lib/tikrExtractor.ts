@@ -84,6 +84,14 @@ function n(v: unknown): number {
   return isNaN(p) ? 0 : p;
 }
 
+/** Convert Excel serial date number to year */
+function serialToYear(serial: number): number {
+  // Excel epoch: 1900-01-01 = 1 (with the Lotus 1-2-3 bug)
+  const epoch = new Date(1899, 11, 30);
+  const d = new Date(epoch.getTime() + serial * 86400000);
+  return d.getFullYear();
+}
+
 function parseYears(row: unknown[]): { years: number[]; cols: number[] } {
   const years: number[] = [], cols: number[] = [];
   if (!row) return { years, cols };
@@ -92,6 +100,10 @@ function parseYears(row: unknown[]): { years: number[]; cols: number[] } {
     if (cell == null) continue;
     if (typeof cell === "object" && cell !== null && typeof (cell as any).getFullYear === "function") {
       years.push((cell as Date).getFullYear());
+      cols.push(c);
+    } else if (typeof cell === "number" && cell > 30000 && cell < 60000) {
+      // Excel date serial number
+      years.push(serialToYear(cell));
       cols.push(c);
     } else if (String(cell).toUpperCase() === "LTM") {
       years.push(years.length > 0 ? years[years.length - 1] + 1 : new Date().getFullYear());
