@@ -327,6 +327,12 @@ export default function FinancialModel() {
                 <Row label="    EBITDA margin %" isSubRow isPercent projStart={N}
                   values={[...hist.map(h => s(h.ebitda, h.sales)), ...proj.map(p => s(p.ebitda, p.sales))]}
                 />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[...histGrowth("ebitda"), ...proj.map((p, j) => {
+                    const prev = j === 0 ? hist[N - 1]?.ebitda : proj[j - 1]?.ebitda;
+                    return prev ? (p.ebitda - prev) / Math.abs(prev) : null;
+                  })]}
+                />
                 <Row label="D&A" values={all("da")} projStart={N} />
                 <Row label="EBIT" isBold values={all("ebit")} projStart={N} />
                 <Row label="    EBIT margin %" isSubRow isPercent projStart={N}
@@ -343,6 +349,12 @@ export default function FinancialModel() {
                     )),
                   ]}
                 />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[...histGrowth("ebit"), ...proj.map((p, j) => {
+                    const prev = j === 0 ? hist[N - 1]?.ebit : proj[j - 1]?.ebit;
+                    return prev ? (p.ebit - prev) / Math.abs(prev) : null;
+                  })]}
+                />
                 <Row label="Interest Expense" values={all("intExp")} projStart={N} />
                 <Row label="Interest Income" values={all("intInc")} projStart={N} />
                 <Row label="Total Interest" values={all("totalInt")} projStart={N} />
@@ -355,7 +367,19 @@ export default function FinancialModel() {
                 <Row label="    Net margin %" isSubRow isPercent projStart={N}
                   values={[...hist.map(h => s(h.netIncome, h.sales)), ...proj.map(p => s(p.netIncome, p.sales))]}
                 />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[...histGrowth("netIncome"), ...proj.map((p, j) => {
+                    const prev = j === 0 ? hist[N - 1]?.netIncome : proj[j - 1]?.netIncome;
+                    return prev ? (p.netIncome - prev) / Math.abs(prev) : null;
+                  })]}
+                />
                 <Row label="EPS" values={all("eps")} projStart={N} decimals={2} />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[...histGrowth("eps"), ...proj.map((p, j) => {
+                    const prev = j === 0 ? hist[N - 1]?.eps : proj[j - 1]?.eps;
+                    return prev ? (p.eps - prev) / Math.abs(prev) : null;
+                  })]}
+                />
                 <Row label="Diluted Shares" values={all("shares")} projStart={N} />
                 <Row label="    Share growth %" isSubRow isPercent projStart={N}
                   values={[
