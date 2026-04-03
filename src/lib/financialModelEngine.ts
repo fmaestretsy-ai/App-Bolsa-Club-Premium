@@ -7,8 +7,9 @@ export interface ModelInputs {
   // IS inputs (per projected year)
   revenueGrowth: Record<number, number>;      // e.g. {2026: 0.15, 2027: 0.13, ...}
   ebitMargin: Record<number, number>;          // e.g. {2026: 0.34, ...}
-  taxRate: number;                             // e.g. 0.14
-  shareGrowthFirst: number;                    // e.g. -0.03 (applied to first year, then formula)
+  taxRate: Record<number, number>;             // e.g. {2026: 0.14, ...}
+  shareGrowth: Record<number, number>;         // e.g. {2026: -0.03, ...}
+  minorityInterestsPct: Record<number, number>; // e.g. {2026: 0, ...}
   // FCF inputs
   wcSales: number;                             // Working Capital / Sales ratio
   // Valoracion inputs
