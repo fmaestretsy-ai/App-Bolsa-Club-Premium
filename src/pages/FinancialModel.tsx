@@ -479,7 +479,7 @@ export default function FinancialModel() {
                 <SectionHeader label="Ratios de rentabilidad" colSpan={totalCols} />
                 <Row label="ROE" isPercent values={all("roe")} projStart={N} medianVal={medians.roe} />
                 <Row label="ROIC" isPercent values={all("roic")} projStart={N} medianVal={medians.roic} />
-                <Row label="Tasa reinversión" isPercent values={hv("reinvRate")} projStart={N} />
+                <Row label="Tasa reinversión" isPercent values={[...hv("reinvRate"), ...pYears.map(() => null)]} projStart={N} />
               </ModelTable>
             </Card>
           </TabsContent>
