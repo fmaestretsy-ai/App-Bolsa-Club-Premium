@@ -123,7 +123,7 @@ function ModelTable({
 }
 
 function Row({
-  label, values, isPercent = false, isBold = false, isSubRow = false, isSeparator = false, decimals = 0,
+  label, values, isPercent = false, isBold = false, isSubRow = false, isSeparator = false,
   projStart = 0, medianVal, isMultiple = false, renderCell,
 }: {
   label: string;
