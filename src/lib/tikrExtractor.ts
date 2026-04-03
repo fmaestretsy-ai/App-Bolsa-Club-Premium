@@ -244,8 +244,8 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     debtRepaid: g(cf, cfH, "Total Debt Repaid", "Debt Repaid", "Deuda pagada"),
     netCashChangeHist: g(cf, cfH, "Net Change in Cash", "Cambio neto en efectivo"),
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
-    ebtExclUnusual: g(is, hdr, "EBT Excl. Unusual Items", "EBT Excl Unusual"),
-    ebtInclUnusual: g(is, hdr, "EBT Incl. Unusual Items", "EBT Incl Unusual"),
+    ebtExclUnusual: g(is, hdr, "EBT, Excl. Unusual Items", "EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl"),
+    ebtInclUnusual: g(is, hdr, "EBT, Incl. Unusual Items", "EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl"),
   };
 
   // ─── Append 2025 from summary sheets (replacing LTM) ───
@@ -378,8 +378,8 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
     const row = findRow(isSheet, ...terms);
     return row && isLtmCol >= 0 ? n(row[isLtmCol]) : 0;
   };
-  const ebtExcl2025 = isLtmVal("EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
-  const ebtIncl2025 = isLtmVal("EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
+  const ebtExcl2025 = isLtmVal("EBT, Excl. Unusual Items", "EBT Excl. Unusual Items", "EBT Excl Unusual", "EBT, Excl");
+  const ebtIncl2025 = isLtmVal("EBT, Incl. Unusual Items", "EBT Incl. Unusual Items", "EBT Incl Unusual", "EBT, Incl");
 
   // Append to raw data
   raw.years.push(year2025);

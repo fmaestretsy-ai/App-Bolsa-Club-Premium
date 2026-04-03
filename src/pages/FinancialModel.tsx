@@ -400,15 +400,31 @@ export default function FinancialModel() {
                 <Row label="(-) CapEx Mantenimiento" values={all("capexMant")} projStart={N} />
                 <Row label="(-) Total Interest" values={all("totalInt")} projStart={N} />
                 <Row label="(-) Taxes" values={all("tax")} projStart={N} />
+                <Row label="    Inventories" isSubRow values={all("inv")} projStart={N} />
+                <Row label="    Accounts Receivable" isSubRow values={all("ar")} projStart={N} />
+                <Row label="    (-) Accounts Payable" isSubRow values={all("ap")} projStart={N} />
+                <Row label="    (-) Unearned Revenue" isSubRow values={[...hist.map(h => h.urC + h.urNC), ...proj.map(() => null)]} projStart={N} />
                 <Row label="Working Capital" values={all("wc")} projStart={N} />
-                <Row label="(-) Variación WC" values={all("cwc")} projStart={N} />
+                <Row label="(-) Variación WC" values={[...hv("cwc"), ...proj.map((p, j) => j === 0 ? null : p.cwc)]} projStart={N} />
                 <Row label="Minority Interest" values={all("mi")} projStart={N} />
                 <Row label="Free Cash Flow" isBold isSeparator values={all("fcf")} projStart={N} />
                 <Row label="    FCF margin %" isSubRow isPercent projStart={N}
                   values={[...hist.map(h => s(h.fcf, h.sales)), ...proj.map(p => s(p.fcf, p.sales))]}
                   medianVal={medians.fcfMargin}
                 />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[...histGrowth("fcf"), ...proj.map((p, j) => {
+                    const prev = j === 0 ? hist[N - 1]?.fcf : proj[j - 1]?.fcf;
+                    return prev ? (p.fcf - prev) / Math.abs(prev) : null;
+                  })]}
+                />
                 <Row label="FCFPS" values={all("fcfps")} projStart={N} />
+                <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
+                  values={[...histGrowth("fcfps"), ...proj.map((p, j) => {
+                    const prev = j === 0 ? hist[N - 1]?.fcfps : proj[j - 1]?.fcfps;
+                    return prev ? (p.fcfps - prev) / Math.abs(prev) : null;
+                  })]}
+                />
                 <Row label="Net Change in Cash" values={all("netCashChange")} projStart={N} />
 
                 <SectionHeader label="Eficiencia" colSpan={totalCols} />

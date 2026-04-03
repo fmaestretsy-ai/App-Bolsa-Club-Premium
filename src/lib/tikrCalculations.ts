@@ -285,7 +285,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   let prevSales = inputs.lastSales;
   let prevDA = inputs.lastDA;
   let prevShares = inputs.lastShares;
-  let prevWC = last.wc;
+  let _prevWC = last.wc;
   let prevCashEq = last.cashEq;
   let prevMktSec = last.mktSec;
   let prevNetDebt = last.netDebt;
@@ -352,7 +352,8 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const wcRate = inputs.wcToSalesEst[j] ?? inputs.wcToSalesEst[0] ?? 0;
     const capexMant = -(capexMantRate * sales);
     const wc = wcRate * sales;
-    const cwc = j === 0 ? wc - prevWC : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
+    // First projection year: no ΔWC (matches Excel template)
+    const cwc = j === 0 ? 0 : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
     const fcfps = fcf / shares;
 
@@ -395,7 +396,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     prevSales = sales;
     prevDA = da;
     prevShares = shares;
-    prevWC = wc;
+    _prevWC = wc;
     prevCashEq = projCashEq;
     prevMktSec = projMktSec;
     prevNetDebt = netDebt;
