@@ -13,6 +13,7 @@ import { Calculator } from "lucide-react";
 import * as XLSX from "xlsx";
 import { extractTikrData, extractManualInputs, type TikrModelInputs } from "@/lib/tikrExtractor";
 import { calculateFullModel, type FullModelResult, type YC } from "@/lib/tikrCalculations";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area } from "recharts";
 
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
