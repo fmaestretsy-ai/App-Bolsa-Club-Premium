@@ -14,6 +14,7 @@ import * as XLSX from "xlsx";
 import { extractTikrData, extractManualInputs, type TikrModelInputs } from "@/lib/tikrExtractor";
 import { calculateFullModel, type FullModelResult, type YC } from "@/lib/tikrCalculations";
 import { Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from "recharts";
+import { getCurrencySymbol } from "@/lib/currency";
 
 /* ─── Editable cell (orange) ─── */
 function EditableCell({
