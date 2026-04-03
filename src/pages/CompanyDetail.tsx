@@ -29,11 +29,13 @@ export default function CompanyDetail() {
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState("");
 
+  const cs = getCurrencySymbol(company?.currency);
+
   const fmt = (n: number | null) => {
     if (n == null) return "—";
-    if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
-    if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-    return `$${n.toFixed(2)}`;
+    if (Math.abs(n) >= 1e6) return `${cs}${(n / 1e6).toFixed(0)}M`;
+    if (Math.abs(n) >= 1e3) return `${cs}${(n / 1e3).toFixed(1)}K`;
+    return `${cs}${n.toFixed(2)}`;
   };
 
   const pct = (n: number | null) => (n != null ? `${(n * 100).toFixed(1)}%` : "—");
