@@ -262,7 +262,7 @@ export function calculateModel(
       totalInterest,
       ebt,
       taxExpense,
-      taxRate: medianTaxRate,
+      taxRate: taxRateYear,
       consolidatedNetIncome,
       minorityInterests,
       netIncome,
