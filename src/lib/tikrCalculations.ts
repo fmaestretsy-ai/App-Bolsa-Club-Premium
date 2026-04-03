@@ -372,7 +372,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const mktCap = inputs.currentPrice * shares;
     const ev = mktCap + netDebt;
 
-    const nopat = ebit * (1 - projTaxRate);
+    const nopat = ebit * (1 - yearTaxRate);
 
     // Projected equity: retained earnings model
     // Equity = prevEquity + NetIncome × (1 - capitalReturnRatio)
