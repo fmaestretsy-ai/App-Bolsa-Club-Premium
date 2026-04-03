@@ -1,40 +1,56 @@
 
 
-## Plan: Usar el símbolo de moneda de la empresa en lugar de "$" hardcodeado
+## Plan: Detectar automáticamente la moneda del Excel y guardarla en la empresa
 
 ### Problema
-Todas las páginas (Valuation, Projection, Companies, FinancialHistory, etc.) tienen el símbolo `$` hardcodeado. Cada empresa tiene un campo `currency` en la base de datos (e.g. "EUR", "USD") que debería usarse para mostrar el símbolo correcto (€, $, £, etc.).
+Actualmente la moneda de cada empresa está hardcodeada como "USD" por defecto. Las acciones europeas (y de otros mercados) usan EUR, GBP, etc. Los archivos TIKR contienen típicamente un texto como "Amounts in EUR Millions" o "Currency: EUR" en las primeras filas de las hojas de datos.
 
 ### Cambios
 
-**1. Crear helper de moneda** (`src/lib/currency.ts`)
-- Función `getCurrencySymbol(currency: string)` que mapea códigos ISO a símbolos: USD→$, EUR→€, GBP→£, JPY→¥, etc.
-- Función `fmtCurrency(value, currency)` reutilizable para formatear precios con el símbolo correcto.
+**1. Detectar moneda en `src/lib/tikrExtractor.ts`**
+- Añadir función `detectCurrency(wb)` que escanee las primeras filas de las hojas TIKR (7.TIKR_IS, 8.TIKR_BS, etc.) buscando patrones como:
+  - "Amounts in XXX" / "Values in XXX"
+  - "Currency: XXX" / "Moneda: XXX"  
+  - "EUR Millions" / "USD Thousands"
+  - Formato de celdas numéricas (cell format strings contienen "€", "£", etc.)
+- Devuelve el código ISO detectado (EUR, USD, GBP...) o null si no se detecta.
+- Exportar desde `TikrRawData` un nuevo campo `currency: string | null`.
 
-**2. Actualizar `Valuation.tsx`**
-- Leer `company.currency` y usar el símbolo correcto en `fmtPrice`, precio actual, precios objetivo, tooltips de gráficos y eje Y.
-- ~15 puntos donde se reemplaza `$` por el símbolo dinámico.
+**2. Propagar moneda en `src/lib/excelParser.ts`**
+- Añadir `currency: string | null` a `ParsedFinancialData`.
+- En `parseExcelFile`, también buscar en las hojas de resumen (1-4) el mismo patrón de moneda.
+- Combinar: prioridad TIKR sheets > summary sheets > null.
 
-**3. Actualizar `Projection.tsx`**
-- Mismo patrón: usar `company.currency` en la función `fmt`, cards de precio, tabla y gráfico.
-
-**4. Actualizar `Companies.tsx`**
-- En la columna de precio, usar `c.currency` en lugar de `$`.
-
-**5. Actualizar `CompanyDetail.tsx`**
-- Precio actual con símbolo dinámico.
-
-**6. Actualizar `FinancialHistory.tsx`** y `FinancialModel.tsx`
-- Formatear valores monetarios con el símbolo de la empresa seleccionada.
+**3. Guardar moneda en `ExcelUpload.tsx`**
+- Al crear/actualizar la empresa, incluir `currency: parsed.currency ?? 'USD'` en el insert/update de `companies`.
+- Así cada empresa tendrá su moneda correcta automáticamente tras el upload.
 
 ### Detalle técnico
+
 ```typescript
-// src/lib/currency.ts
-const SYMBOLS: Record<string, string> = {
-  USD: "$", EUR: "€", GBP: "£", JPY: "¥", CHF: "CHF", SEK: "kr",
-};
-export const getCurrencySymbol = (c?: string) => SYMBOLS[c?.toUpperCase() ?? "USD"] ?? c ?? "$";
+// En tikrExtractor.ts
+function detectCurrency(wb: XLSX.WorkBook): string | null {
+  const CURRENCY_PATTERN = /(?:amounts?|values?|currency|moneda)\s+(?:in\s+)?(USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS)/i;
+  const UNIT_PATTERN = /(USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD)\s*(millions?|thousands?|billions?)/i;
+  
+  // Scan first 5 rows of TIKR sheets
+  for (const sheetName of wb.SheetNames) {
+    const sheet = wb.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    for (let r = 0; r < Math.min(5, data.length); r++) {
+      for (const cell of data[r]) {
+        const s = String(cell ?? "");
+        const m = s.match(CURRENCY_PATTERN) || s.match(UNIT_PATTERN);
+        if (m) return m[1].toUpperCase();
+      }
+    }
+  }
+  return null;
+}
 ```
 
-Cada página ya tiene acceso al objeto `company`, que incluye `currency`. Solo se necesita pasar ese valor a las funciones de formateo.
+### Resultado
+- Al subir un Excel TIKR de una empresa europea, se detectará "EUR" automáticamente
+- La empresa se creará/actualizará con `currency: "EUR"`
+- Todas las páginas (Valuation, Projection, etc.) ya usan `getCurrencySymbol(company.currency)` del cambio anterior, así que mostrarán € automáticamente
 
