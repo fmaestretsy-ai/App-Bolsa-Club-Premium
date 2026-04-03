@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { TradeDialog } from "@/components/TradeDialog";
+import { getCurrencySymbol, fmtCurrencyCompact } from "@/lib/currency";
 
 export default function CompanyDetail() {
   const { t } = useTranslation();
