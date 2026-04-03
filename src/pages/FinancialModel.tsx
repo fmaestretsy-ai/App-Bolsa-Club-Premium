@@ -270,7 +270,7 @@ export default function FinancialModel() {
 
   /** Update a per-year Record field: sets the edited year + all subsequent years to the new value */
   const updatePerYear = useCallback((
-    field: 'revenueGrowth' | 'ebitMargin' | 'taxRate' | 'shareGrowth' | 'netDebtEbitda' | 'minorityInterestsPct',
+    field: 'revenueGrowth' | 'ebitMargin' | 'taxRate' | 'shareGrowth' | 'netDebtEbitda' | 'minorityInterestsPct' | 'capexSalesRatio' | 'wcSales',
     editedYear: number,
     value: number,
   ) => {
