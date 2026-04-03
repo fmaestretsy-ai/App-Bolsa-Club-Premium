@@ -245,9 +245,14 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   const last = hist[N - 1];
   if (!last) return emptyResult();
 
-  // Projected tax rate = median of last 3 valid rates
+  // Projected tax rate: use per-year inputs if available, else median of last 3
   const validTaxRates = hist.slice(-3).map(h => h.taxRate).filter(t => t > 0 && t < 1);
-  const projTaxRate = med(validTaxRates);
+  const defaultTaxRate = med(validTaxRates);
+  const getProjTaxRate = (j: number) => {
+    const v = inputs.taxRateEst?.[j];
+    return (v != null && v > 0) ? v : defaultTaxRate;
+  };
+  const projTaxRate = defaultTaxRate;
 
   // Interest rates from historical workbook logic
   const totalHistDebt = hist.reduce((sum, h) => sum + h.stDebt + h.ltDebt, 0);
@@ -344,7 +349,8 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const totalInt = intExp + intInc;
 
     const ebt = ebit + totalInt;
-    const tax = -(ebt * projTaxRate);
+    const yearTaxRate = getProjTaxRate(j);
+    const tax = -(ebt * yearTaxRate);
     const consolNI = ebt + tax;
     const mi = miRatio * consolNI;
     const netIncome = consolNI + mi;
@@ -366,7 +372,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const mktCap = inputs.currentPrice * shares;
     const ev = mktCap + netDebt;
 
-    const nopat = ebit * (1 - projTaxRate);
+    const nopat = ebit * (1 - yearTaxRate);
 
     // Projected equity: retained earnings model
     // Equity = prevEquity + NetIncome × (1 - capitalReturnRatio)
@@ -381,7 +387,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
 
     proj.push({
       year: projYear, sales, ebitda, da, ebit,
-      intExp, intInc, totalInt, ebt, tax, taxRate: projTaxRate,
+      intExp, intInc, totalInt, ebt, tax, taxRate: yearTaxRate,
       consolNI, mi, netIncome, eps, shares,
       capexMant, wc, cwc, fcf, fcfps,
       netCashChange: inputs.netCashChange[j] ?? 0,
