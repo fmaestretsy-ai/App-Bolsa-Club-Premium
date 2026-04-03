@@ -331,7 +331,7 @@ export default function Valuation() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="p-5">
                 <h3 className="text-sm font-semibold text-card-foreground mb-1">Precio por acción actual</h3>
-                <p className="text-3xl font-bold text-foreground">{currentPrice > 0 ? `$${currentPrice.toFixed(0)}` : "—"}</p>
+                <p className="text-3xl font-bold text-foreground">{currentPrice > 0 ? `${cs}${currentPrice.toFixed(0)}` : "—"}</p>
               </Card>
 
               <Card className="p-5">
