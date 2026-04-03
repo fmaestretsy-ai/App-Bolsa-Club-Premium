@@ -414,16 +414,31 @@ export function extractModelInputs(
   };
 }
 
-/** Convert financial_periods data to HistoricalData */
+/** Convert financial_periods data to HistoricalData, merging duplicate fiscal years */
 export function periodsToHistorical(periods: any[]): HistoricalData[] {
-  return periods.map(p => {
+  // Group by fiscal_year and merge: prefer non-null values
+  const grouped: Record<number, any> = {};
+  for (const p of periods) {
+    const fy = p.fiscal_year;
+    if (!grouped[fy]) {
+      grouped[fy] = { ...p };
+    } else {
+      // Merge: for each field, prefer the non-null value
+      const existing = grouped[fy];
+      for (const key of Object.keys(p)) {
+        if (p[key] != null && existing[key] == null) {
+          existing[key] = p[key];
+        }
+      }
+    }
+  }
+
+  return Object.values(grouped).map(p => {
     const ebit = p.ebit as number | null;
     const netIncome = p.net_income as number | null;
-    // Use DB columns if available, otherwise derive
     const interestExpense = p.interest_expense as number | null;
     const interestIncome = p.interest_income as number | null;
     const taxExpense = p.tax_expense as number | null;
-    // Tax rate from actual data
     const totalInterest = (interestExpense ?? 0) + (interestIncome ?? 0);
     const ebt = ebit != null ? ebit + totalInterest : null;
     const taxRate = ebt != null && taxExpense != null && ebt !== 0

@@ -439,7 +439,7 @@ export default function FinancialModel() {
                   projValues={result.projected.map(p => fmtP(p.taxExpense))}
                 />
                 {/* Tax Rate - ORANGE */}
-                <Row label="    Tax rate %" isSubRow
+                <Row label="    Tax rate %" isSubRow isPercent
                   histValues={getHist("taxRate")}
                   projValues={pYears.map(y => (
                     <EditableCell key={y} value={modelInputs.taxRate[y] ?? 0.14} format="percent"
