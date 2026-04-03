@@ -336,9 +336,11 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const eps = netIncome / shares;
 
     // FCF
-    const capexMant = -(inputs.capexMantToSales * sales);
-    const wc = inputs.wcToSalesEst * sales;
-    const cwc = j === 0 ? wc - prevWC : wc - (inputs.wcToSalesEst * prevSales);
+    const capexMantRate = inputs.capexMantToSales[j] ?? inputs.capexMantToSales[0] ?? 0;
+    const wcRate = inputs.wcToSalesEst[j] ?? inputs.wcToSalesEst[0] ?? 0;
+    const capexMant = -(capexMantRate * sales);
+    const wc = wcRate * sales;
+    const cwc = j === 0 ? wc - prevWC : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
     const fcfps = fcf / shares;
 
@@ -419,6 +421,8 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   const buyPriceVsCurrent = cp > 0 ? (buyPrice - cp) / cp : 0;
 
   // ═══ Medians ═══
+  // Exclude years with incomplete CF data (e.g. appended 2025 with capex=0)
+  const histWithCF = hist.filter((h, i) => !(raw.capex[i] === 0 && raw.repurchaseStock[i] === 0 && i === N - 1));
   const medians: Record<string, number> = {
     per: medPositive(hist.map(h => h.per)),
     evFcf: medPositive(hist.map(h => h.evFcf)),
@@ -430,12 +434,12 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     wcToSales: med(hist.map(h => s(h.wc, h.sales))),
     fcfMargin: med(hist.map(h => s(h.fcf, h.sales))),
     cashConversion: med(hist.map(h => s(h.fcf, h.ebitda))),
-    capexExpPct: med(hist.map(h => h.capexExpPct)),
-    acqPct: med(hist.map(h => h.acqPct)),
-    divPct: med(hist.map(h => h.divPct)),
-    buybackPct: med(hist.map(h => h.buybackPct)),
-    debtRepayPct: med(hist.map(h => h.debtRepayPct)),
-    totalAllocPct: med(hist.map(h => h.totalAllocPct)),
+    capexExpPct: med(histWithCF.map(h => h.capexExpPct)),
+    acqPct: med(histWithCF.map(h => h.acqPct)),
+    divPct: med(histWithCF.map(h => h.divPct)),
+    buybackPct: med(histWithCF.map(h => h.buybackPct)),
+    debtRepayPct: med(histWithCF.map(h => h.debtRepayPct)),
+    totalAllocPct: med(histWithCF.map(h => h.totalAllocPct)),
     netDebtToEBITDA: med(hist.map(h => s(h.netDebt, h.ebitda))),
   };
 
