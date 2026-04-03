@@ -227,7 +227,46 @@ export default function FinancialModel() {
   const historical = useMemo(() => periodsToHistorical(periods), [periods]);
   const historicalYears = useMemo(() => historical.map(h => h.fiscalYear).sort((a, b) => a - b), [historical]);
   const projectedFromExcel = useMemo(
-    () => (parsedExcel?.projectedPeriods ? periodsToHistorical(parsedExcel.projectedPeriods as any[]) : []),
+    () => {
+      if (!parsedExcel?.projectedPeriods) return [];
+      // Convert camelCase ParsedPeriod to snake_case expected by periodsToHistorical
+      const converted = parsedExcel.projectedPeriods.map(p => ({
+        fiscal_year: p.fiscalYear,
+        revenue: p.revenue,
+        ebitda: p.ebitda,
+        ebit: p.ebit,
+        net_income: p.netIncome,
+        fcf: p.fcf,
+        diluted_shares: p.dilutedShares,
+        eps: p.eps,
+        margin_ebitda: p.marginEbitda,
+        margin_net: p.marginNet,
+        margin_fcf: p.marginFcf,
+        total_debt: p.totalDebt,
+        cash: p.cash,
+        net_debt: p.netDebt,
+        capex: p.capex,
+        roe: p.roe,
+        roic: p.roic,
+        bvps: p.bvps,
+        fcf_per_share: p.fcfPerShare,
+        pe_ratio: p.peRatio,
+        ev_ebitda: p.evEbitda,
+        p_fcf: p.pFcf,
+        revenue_growth: p.revenueGrowth,
+        net_income_growth: p.netIncomeGrowth,
+        fcf_growth: p.fcfGrowth,
+        dividend_per_share: p.dividendPerShare,
+        interest_expense: p.interestExpense,
+        interest_income: p.interestIncome,
+        tax_expense: p.taxExpense,
+        inventories: p.inventories,
+        accounts_receivable: p.accountsReceivable,
+        accounts_payable: p.accountsPayable,
+        unearned_revenue: p.unearnedRevenue,
+      }));
+      return periodsToHistorical(converted);
+    },
     [parsedExcel]
   );
 
