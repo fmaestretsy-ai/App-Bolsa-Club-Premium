@@ -368,7 +368,7 @@ export default function FinancialModel() {
                     return prev ? (p.netIncome - prev) / Math.abs(prev) : null;
                   })]}
                 />
-                <Row label="EPS" values={all("eps")} projStart={N} decimals={2} />
+                <Row label="EPS" values={all("eps")} projStart={N} />
                 <Row label="    Y/Y Growth %" isSubRow isPercent projStart={N}
                   values={[...histGrowth("eps"), ...proj.map((p, j) => {
                     const prev = j === 0 ? hist[N - 1]?.eps : proj[j - 1]?.eps;
