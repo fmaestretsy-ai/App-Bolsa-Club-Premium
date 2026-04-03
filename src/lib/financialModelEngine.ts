@@ -195,7 +195,9 @@ export function calculateModel(
     const year = projectionYears[i];
     const revGrowth = inputs.revenueGrowth[year] ?? 0.10;
     const ebitMarg = inputs.ebitMargin[year] ?? 0.30;
-    const shareGrowth = i === 0 ? inputs.shareGrowthFirst : inputs.shareGrowthFirst;
+    const taxRateYear = inputs.taxRate[year] ?? 0.14;
+    const shareGrowth = inputs.shareGrowth[year] ?? -0.02;
+    const minorityPct = inputs.minorityInterestsPct[year] ?? 0;
 
     const revenue = prevRevenue * (1 + revGrowth);
     const da = prevDA * (1 + revGrowth); // D&A grows with revenue (negative value)
