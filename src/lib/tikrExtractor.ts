@@ -256,7 +256,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
 
 /**
  * Read computed 2025 values from 1.IS, 2.FCF, 3.ROIC, 4.Valoracion
- * and append them as the last entry in the TikrRawData arrays.
+ * and CF items from TIKR CF LTM column.
  */
 function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const is1 = findSheet(wb, "1.IS");
@@ -332,6 +332,41 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   const mktCapRow4 = findRowIdx(val4, "market cap");
   const mktCap2025 = n(val4[mktCapRow4 >= 0 ? mktCapRow4 : 2]?.[col2025]);
 
+  // ─── Read CF items from TIKR CF LTM column ───
+  const cfSheet = findSheet(wb, "9.TIKR_CF", "TIKR_CF", "tikr_cf");
+  let ltmCol = -1;
+  for (let r = 0; r < Math.min(5, cfSheet.length); r++) {
+    const row = cfSheet[r];
+    if (!row) continue;
+    for (let c = 1; c < row.length; c++) {
+      if (typeof row[c] === "string" && row[c].toUpperCase() === "LTM") { ltmCol = c; break; }
+    }
+    if (ltmCol >= 0) break;
+  }
+
+  const cfVal = (...terms: string[]) => {
+    const row = findRow(cfSheet, ...terms);
+    return row && ltmCol >= 0 ? n(row[ltmCol]) : 0;
+  };
+
+  const capex2025 = cfVal("Capital Expenditure", "CapEx");
+  const salePPE2025 = cfVal("Sale of Property, Plant, and Equipment", "Sale of PPE");
+  const saleIntang2025 = cfVal("Sale (Purchase) of Intangible", "Intangible assets");
+  const acq2025 = cfVal("Cash Acquisitions", "Acquisitions");
+  const divest2025 = cfVal("Divestitures", "Divestiture");
+  const sbc2025 = cfVal("Stock-Based Compensation", "SBC");
+  const issueStock2025 = cfVal("Issuance of Common Stock", "Stock Issuance");
+  const repurchase2025 = cfVal("Repurchase of Common Stock", "Buyback");
+  const divPaid2025 = cfVal("Common & Preferred Stock Dividends Paid", "Dividends Paid");
+  const debtIssued2025 = cfVal("Total Debt Issued", "Debt Issued");
+  const debtRepaid2025 = cfVal("Total Debt Repaid", "Debt Repaid");
+  const deprecCF2025 = cfVal("Depreciation", "Depreciation & Amortization");
+  const amortGW2025 = cfVal("Amortization of Goodwill", "Amortization of Goodwill and Intangible");
+  const ebtExcl2025 = cfVal("EBT Excl. Unusual Items", "EBT Excl Unusual");
+  const ebtIncl2025 = cfVal("EBT Incl. Unusual Items", "EBT Incl Unusual");
+  const assetWD2025 = cfVal("Asset Writedown", "Restructuring Costs");
+  const impGW2025 = cfVal("Impairment of Goodwill");
+
   // Append to raw data
   raw.years.push(year2025);
   raw.revenues.push(sales2025);
@@ -342,8 +377,8 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.minorityInterest.push(mi2025);
   raw.dilutedShares.push(shares2025);
   raw.basicShares.push(shares2025);
-  raw.assetWritedown.push(0);
-  raw.impairmentGoodwill.push(0);
+  raw.assetWritedown.push(assetWD2025);
+  raw.impairmentGoodwill.push(impGW2025);
   raw.cashEquiv.push(cash2025);
   raw.totalCashSTI.push(cash2025 + mktSec2025);
   raw.inventory.push(inv2025);
@@ -360,24 +395,24 @@ function append2025FromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.currentCapLeases.push(curLease2025);
   raw.ncCapLeases.push(ncLease2025);
   raw.totalEquity.push(equity2025);
-  raw.depreciation.push(da2025);
-  raw.amortGoodwill.push(0);
-  raw.capex.push(0);
-  raw.salePPE.push(0);
-  raw.saleIntangibles.push(0);
-  raw.cashAcquisitions.push(0);
-  raw.divestitures.push(0);
-  raw.sbc.push(0);
-  raw.issuanceStock.push(0);
-  raw.repurchaseStock.push(0);
-  raw.dividendsPaid.push(0);
-  raw.debtIssued.push(0);
-  raw.debtRepaid.push(0);
+  raw.depreciation.push(deprecCF2025 || da2025);
+  raw.amortGoodwill.push(amortGW2025);
+  raw.capex.push(capex2025);
+  raw.salePPE.push(salePPE2025);
+  raw.saleIntangibles.push(saleIntang2025);
+  raw.cashAcquisitions.push(acq2025);
+  raw.divestitures.push(divest2025);
+  raw.sbc.push(sbc2025);
+  raw.issuanceStock.push(issueStock2025);
+  raw.repurchaseStock.push(repurchase2025);
+  raw.dividendsPaid.push(divPaid2025);
+  raw.debtIssued.push(debtIssued2025);
+  raw.debtRepaid.push(debtRepaid2025);
   raw.netCashChangeHist.push(nc2025);
-    raw.marketCapMM.push(mktCap2025);
-    raw.ebtExclUnusual.push(0);
-    raw.ebtInclUnusual.push(0);
-  }
+  raw.marketCapMM.push(mktCap2025);
+  raw.ebtExclUnusual.push(ebtExcl2025);
+  raw.ebtInclUnusual.push(ebtIncl2025);
+}
 
 // ─── Manual inputs extraction (label-based) ───
 
