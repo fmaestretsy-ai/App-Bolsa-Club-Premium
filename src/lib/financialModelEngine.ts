@@ -379,6 +379,7 @@ export function extractModelInputs(
   return {
     revenueGrowth: cp.revenue_growth || defaultGrowths,
     ebitMargin: cp.ebit_margin || defaultMargins,
+    taxRate: cp.tax_rate ?? 0.14,
     shareGrowthFirst: cp.share_growth_first ?? -0.02,
     wcSales: cp.wc_sales ?? 0,
     netDebtEbitda: cp.net_debt_ebitda || defaultNdEbitda,
