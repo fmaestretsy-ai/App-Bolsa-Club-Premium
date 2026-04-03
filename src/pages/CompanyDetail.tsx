@@ -275,7 +275,7 @@ export default function CompanyDetail() {
                     return (
                       <Card key={scenario} className="p-5">
                         <p className="text-sm font-medium text-muted-foreground mb-2">{labels[scenario]}</p>
-                        <p className="text-3xl font-bold text-card-foreground">${avgIV.toFixed(2)}</p>
+                        <p className="text-3xl font-bold text-card-foreground">{cs}{avgIV.toFixed(2)}</p>
                         <p className={`text-sm font-semibold mt-1 ${avgUp >= 0 ? "text-green-500" : "text-red-500"}`}>
                           {avgUp >= 0 ? "+" : ""}{avgUp.toFixed(1)}% upside
                         </p>
