@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { getCurrencySymbol } from "@/lib/currency";
 
 export default function Valuation() {
   const { t } = useTranslation();
