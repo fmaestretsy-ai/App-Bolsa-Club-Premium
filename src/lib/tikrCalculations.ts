@@ -213,7 +213,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const unusualItems = mr + ls + aw + oui;
 
     // Reinvestment rate: (|total capex| - total D&A + cwc) / NOPAT
-    const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - (deprec + amortGW) + cwc) / nopat : 0;
+    const reinvRate = nopat !== 0 ? (Math.abs(capexRaw) - Math.abs(deprec + amortGW) + cwc) / nopat : 0;
 
     hist.push({
       year: raw.years[i], sales, ebitda, da, ebit,
@@ -380,8 +380,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const prevEquity = j === 0 ? last.equity : proj[j - 1].equity;
     const retainedEarnings = netIncome * (1 - medianCapitalReturnRatio);
     const projEquity = prevEquity + retainedEarnings;
-    const curLeases = last.curLeases * (1 + gr) ** (j + 1);
-    const ncLeases = last.ncLeases * (1 + gr) ** (j + 1);
+    const prevCurLeases = j === 0 ? last.curLeases : proj[j - 1].curLeases;
+    const prevNcLeases = j === 0 ? last.ncLeases : proj[j - 1].ncLeases;
+    const curLeases = prevCurLeases * (1 + gr);
+    const ncLeases = prevNcLeases * (1 + gr);
     const ic = projEquity + projStDebt + projLtDebt + curLeases + ncLeases - projMktSec;
 
     const projYear = last.year + j + 1;
@@ -466,9 +468,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     divPct: med(histWithCF.map(h => h.divPct)),
     buybackPct: med(histWithCF.map(h => h.buybackPct)),
     debtRepayPct: med(histWithCF.map(h => h.debtRepayPct)),
-    totalAllocPct: med(histWithCF.map(h => h.totalAllocPct)),
+    totalAllocPct: 0, // computed below as sum of component medians
     netDebtToEBITDA: med(hist.map(h => s(h.netDebt, h.ebitda))),
   };
+  medians.totalAllocPct = medians.capexExpPct + medians.acqPct + medians.divPct + medians.buybackPct + medians.debtRepayPct;
 
   // ═══ Red flag counts ═══
   let salesDecline = 0, marginDecline = 0, negativeFCF = 0, poorROIC = 0, highDebt = 0;
