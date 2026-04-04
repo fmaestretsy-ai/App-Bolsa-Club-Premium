@@ -363,10 +363,57 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
   };
 
+  // ─── Read D&A from 1.IS summary (hardcoded values override CF breakdown) ───
+  readTotalDAFromSummary(wb, raw);
+
   // ─── Append 2025 from summary sheets (replacing LTM) ───
   appendLTMFromSummary(wb, raw);
 
   return raw;
+}
+
+function readTotalDAFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
+  const is1 = findSheet(wb, "1.IS");
+  if (is1.length < 10) return;
+
+  const headerRow = is1[1];
+  if (!headerRow) return;
+
+  // Find D&A row in 1.IS
+  const daRowIdx = findRowIdx(is1, "depreciation & amortization", "d&a", "depreciación");
+  if (daRowIdx < 0) return;
+
+  const daRow = is1[daRowIdx];
+  if (!daRow) return;
+
+  // Map years from the header to extract D&A for each historical year
+  const totalDA: number[] = [];
+  for (let i = 0; i < raw.years.length; i++) {
+    const year = raw.years[i];
+    // Find matching column in 1.IS header
+    let found = false;
+    for (let c = 1; c < headerRow.length; c++) {
+      const cell = headerRow[c];
+      let colYear = 0;
+      if (typeof cell === "number") {
+        colYear = cell >= 1990 && cell <= 2060 ? cell : cell > 30000 ? serialToYear(cell) : 0;
+      } else {
+        const p = parseInt(String(cell), 10);
+        if (p >= 1990 && p <= 2060) colYear = p;
+      }
+      if (colYear === year) {
+        totalDA.push(Math.abs(n(daRow[c])));
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      // Fallback: compute from CF deprec + amortGW
+      totalDA.push(Math.abs((raw.depreciation[i] ?? 0)) + Math.abs((raw.amortGoodwill[i] ?? 0)));
+    }
+  }
+
+  raw.totalDA = totalDA;
 }
 
 /**
