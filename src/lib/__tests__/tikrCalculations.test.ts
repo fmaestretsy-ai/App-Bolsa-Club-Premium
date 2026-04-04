@@ -5,6 +5,7 @@ import type { TikrRawData, TikrModelInputs } from "../tikrExtractor";
 function makeRaw(overrides: Partial<TikrRawData> = {}): TikrRawData {
   const zeros = [0, 0, 0];
   return {
+    totalDA: [],
     currency: null,
     years: [2016, 2017, 2020],
     revenues: [135987, 177866, 386064],
