@@ -414,7 +414,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     prevSales = sales;
     prevDA = da;
     prevShares = shares;
-    _prevWC = wc;
+    prevWC = wc;
     prevCashEq = projCashEq;
     prevMktSec = projMktSec;
     prevNetDebt = netDebt;
