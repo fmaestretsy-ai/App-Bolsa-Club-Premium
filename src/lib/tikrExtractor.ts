@@ -365,11 +365,12 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
   };
 
-  // ─── Read D&A from 1.IS summary (hardcoded values override CF breakdown) ───
-  readTotalDAFromSummary(wb, raw);
-
-  // ─── Append 2025 from summary sheets (replacing LTM) ───
+  // ─── Append summary-year data when TIKR stops before the workbook ───
   appendLTMFromSummary(wb, raw);
+
+  // ─── Summary sheets can override CF-derived values with manual workbook adjustments ───
+  readTotalDAFromSummary(wb, raw);
+  readCapexMantOverrideFromSummary(wb, raw);
 
   return raw;
 }
