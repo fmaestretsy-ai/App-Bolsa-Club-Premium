@@ -301,7 +301,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
   let prevSales = inputs.lastSales;
   let prevDA = inputs.lastDA;
   let prevShares = inputs.lastShares;
-  let _prevWC = last.wc;
+  let prevWC = last.wc;
   let prevCashEq = last.cashEq;
   let prevMktSec = last.mktSec;
   let prevNetDebt = last.netDebt;
@@ -358,19 +358,18 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const yearTaxRate = getProjTaxRate(j);
     const tax = -(ebt * yearTaxRate);
     const consolNI = ebt + tax;
-    const mi = miRatio * consolNI;
+    const projectedMi = inputs.projectedMinorityInterest?.[j];
+    const mi = projectedMi != null && Number.isFinite(projectedMi) ? projectedMi : miRatio * consolNI;
     const netIncome = consolNI + mi;
 
     const shares = prevShares * (1 + inputs.shareDilutionRate);
     const eps = netIncome / shares;
 
-    // FCF
     const capexMantRate = inputs.capexMantToSales[j] ?? inputs.capexMantToSales[0] ?? 0;
     const wcRate = inputs.wcToSalesEst[j] ?? inputs.wcToSalesEst[0] ?? 0;
     const capexMant = -(capexMantRate * sales);
     const wc = wcRate * sales;
-    // First projection year: no ΔWC (matches Excel template)
-    const cwc = j === 0 ? 0 : wc - ((inputs.wcToSalesEst[j - 1] ?? wcRate) * prevSales);
+    const cwc = wc - prevWC;
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
     const fcfps = fcf / shares;
 
