@@ -1,0 +1,1 @@
+UPDATE companies SET currency = 'CAD' WHERE id = '2a2560d9-1c8d-4752-86e2-a4282dae7db2';
