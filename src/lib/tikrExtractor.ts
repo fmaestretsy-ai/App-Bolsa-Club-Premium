@@ -58,6 +58,7 @@ export interface TikrRawData {
   debtRepaid: number[];
   netCashChangeHist: number[];
   marketCapMM: number[];
+  capexMantOverride?: number[];
 }
 
 export interface TikrModelInputs {
@@ -78,6 +79,7 @@ export interface TikrModelInputs {
   targetEVEBIT: number;
   taxRateEst: number[];
   targetReturn: number;
+  projectedMinorityInterest?: number[];
 }
 
 // ─── Helpers ───
@@ -363,11 +365,12 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     marketCapMM: g(vl, vlH, "Market Cap (MM)", "Market Cap", "Capitalización"),
   };
 
-  // ─── Read D&A from 1.IS summary (hardcoded values override CF breakdown) ───
-  readTotalDAFromSummary(wb, raw);
-
-  // ─── Append 2025 from summary sheets (replacing LTM) ───
+  // ─── Append summary-year data when TIKR stops before the workbook ───
   appendLTMFromSummary(wb, raw);
+
+  // ─── Summary sheets can override CF-derived values with manual workbook adjustments ───
+  readTotalDAFromSummary(wb, raw);
+  readCapexMantOverrideFromSummary(wb, raw);
 
   return raw;
 }
@@ -414,6 +417,36 @@ function readTotalDAFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   }
 
   raw.totalDA = totalDA;
+}
+
+function readCapexMantOverrideFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
+  const fcf2 = findSheet(wb, "2.FCF");
+  if (fcf2.length < 5) return;
+
+  const headerRow = fcf2[1];
+  const capexMantRowIdx = findRowIdx(fcf2, "capex mantenimiento", "maintenance capex");
+  if (!headerRow || capexMantRowIdx < 0) return;
+
+  const capexMantRow = fcf2[capexMantRowIdx];
+  const overrides: number[] = [];
+
+  for (let i = 0; i < raw.years.length; i++) {
+    const year = raw.years[i];
+    let value = 0;
+
+    for (let c = 1; c < headerRow.length; c++) {
+      const cell = headerRow[c];
+      const parsedYear = parseInt(String(cell), 10);
+      if (parsedYear === year) {
+        value = n(capexMantRow?.[c]);
+        break;
+      }
+    }
+
+    overrides.push(value);
+  }
+
+  raw.capexMantOverride = overrides;
 }
 
 /**
@@ -698,6 +731,8 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const capexMantToSales = fcfProjCols.map(c => n(fcf[capexSalesRow >= 0 ? capexSalesRow : 21]?.[c]));
   const wcToSalesEst = fcfProjCols.map(c => n(fcf[wcSalesRow >= 0 ? wcSalesRow : 22]?.[c]));
   const netCashChange = fcfProjCols.map(c => n(fcf[netCashRow >= 0 ? netCashRow : 18]?.[c]));
+  const miRow = findRowIdx(is, "minority interest", "minority interests");
+  const projectedMinorityInterest = projCols.map(c => miRow >= 0 ? n(is[miRow]?.[c]) : Number.NaN);
 
   const priceRow = findRowIdx(val, "precio por acción actual", "current price", "precio actual");
   const targetReturnRow = findRowIdx(val, "retorno anual objetivo", "target return", "rendimiento objetivo");
@@ -751,11 +786,10 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const ndEbitdaRow = findRowIdx(val, "deuda neta / ebitda", "net debt / ebitda", "nd/ebitda");
   const netDebtToEBITDA = valProjCols.map(c => n(val[ndEbitdaRow >= 0 ? ndEbitdaRow : 4]?.[c]));
 
-  // Extract projected tax rates from IS sheet
   const taxRateRow = findRowIdx(is, "tax rate", "tasa impositiva");
   const taxRateEst = projCols.map(c => {
     if (taxRateRow >= 0) return n(is[taxRateRow]?.[c]);
-    return 0; // will be filled by engine median
+    return 0;
   });
 
   return {
@@ -776,5 +810,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     targetEVEBITDA,
     targetEVEBIT,
     targetReturn: n(val[targetReturnRow >= 0 ? targetReturnRow : 50]?.[1]) || 0.15,
+    projectedMinorityInterest,
   };
 }

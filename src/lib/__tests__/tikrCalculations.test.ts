@@ -68,7 +68,7 @@ function makeInputs(): TikrModelInputs {
     netDebtToEBITDA: [0.3, 0.3, 0.3, 0.3, 0.3],
     currentPrice: 220, targetPER: 50, targetEVFCF: 40,
     targetEVEBITDA: 25, targetEVEBIT: 30,
-    taxRateEst: [], targetReturn: 0.15,
+    taxRateEst: [], targetReturn: 0.15, projectedMinorityInterest: [],
   };
 }
 
