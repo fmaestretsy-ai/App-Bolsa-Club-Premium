@@ -124,7 +124,10 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const ebit = sa(raw.operatingIncome, i);
     const deprec = sa(raw.depreciation, i);
     const amortGW = sa(raw.amortGoodwill, i);
-    const da = -(deprec + amortGW);
+    // Use totalDA from 1.IS (includes all amortization items) when available;
+    // fall back to CF deprec + amortGW breakdown
+    const totalDAVal = sa(raw.totalDA, i);
+    const da = totalDAVal !== 0 ? -totalDAVal : -(Math.abs(deprec) + Math.abs(amortGW));
     const ebitda = ebit - da;
     const intExp = sa(raw.interestExpense, i);
     const intInc = sa(raw.interestIncome, i);
