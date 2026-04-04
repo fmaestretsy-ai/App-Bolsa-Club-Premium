@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import { extractTikrData, extractModelInputs } from "@/lib/tikrExtractor";
+import { extractTikrData, extractManualInputs } from "@/lib/tikrExtractor";
 import { calculateFullModel } from "@/lib/tikrCalculations";
 
 describe("CSU FCF audit", () => {
@@ -18,7 +18,7 @@ describe("CSU FCF audit", () => {
     console.log("URC:", raw.unearnedRevCurrent);
     console.log("URNC:", raw.unearnedRevNonCurrent);
 
-    const inputs = extractModelInputs(wb);
+    const inputs = extractManualInputs(wb);
     expect(inputs).not.toBeNull();
     if (!inputs) return;
 
