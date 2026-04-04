@@ -120,6 +120,38 @@ function normalizeLabel(value: unknown): string {
     .trim();
 }
 
+function normalizeMetricLabel(value: unknown): string {
+  return normalizeLabel(value)
+    .replace(/\s+/g, "")
+    .replace(/[()]/g, "");
+}
+
+function isNumericLike(value: unknown): boolean {
+  if (typeof value === "number") return isFinite(value);
+  if (typeof value !== "string") return false;
+  const cleaned = value.replace(/[,$\s]/g, "").trim();
+  return cleaned !== "" && !Number.isNaN(Number(cleaned));
+}
+
+function extractPrimaryPrice(row: unknown[] | null): number {
+  if (!row) return 0;
+  let lastNumeric = 0;
+  let seenNumeric = false;
+
+  for (let c = 1; c < row.length; c++) {
+    const cell = row[c];
+    if (cell == null || cell === "") continue;
+    if (isNumericLike(cell)) {
+      lastNumeric = n(cell);
+      seenNumeric = true;
+      continue;
+    }
+    if (seenNumeric) break;
+  }
+
+  return lastNumeric;
+}
+
 function findExactLabelRow(data: unknown[][], ...labels: string[]): unknown[] | null {
   const wanted = labels.map(normalizeLabel);
   return data.find((row) => wanted.includes(normalizeLabel(row?.[0]))) ?? null;
@@ -643,12 +675,12 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   let targetPER = 20, targetEVFCF = 20, targetEVEBITDA = 15, targetEVEBIT = 15;
   if (targetMultiplesStart >= 0) {
     for (let r = targetMultiplesStart + 1; r < Math.min(targetMultiplesStart + 6, val.length); r++) {
-      const label = String(val[r]?.[0] || "").toLowerCase().trim();
+      const label = normalizeMetricLabel(val[r]?.[0]);
       const v = n(val[r]?.[1]);
       if (label === "per") targetPER = v;
-      else if (label.includes("ev / fcf") || label.includes("ev/fcf")) targetEVFCF = v;
-      else if (label.includes("ev / ebitda") || label.includes("ev/ebitda")) targetEVEBITDA = v;
-      else if (label.includes("ev / ebit") || label.includes("ev/ebit")) targetEVEBIT = v;
+      else if (label === "ev/fcf") targetEVFCF = v;
+      else if (label === "ev/ebitda") targetEVEBITDA = v;
+      else if (label === "ev/ebit") targetEVEBIT = v;
     }
   }
 
@@ -689,7 +721,7 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     netCashChange,
     netDebtToEBITDA,
     taxRateEst,
-    currentPrice: n(val[priceRow >= 0 ? priceRow : 18]?.[1]),
+    currentPrice: extractPrimaryPrice(val[priceRow >= 0 ? priceRow : 18]),
     targetPER,
     targetEVFCF,
     targetEVEBITDA,
