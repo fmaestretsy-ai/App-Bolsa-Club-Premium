@@ -701,66 +701,12 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const capexMantToSales = fcfProjCols.map(c => n(fcf[capexSalesRow >= 0 ? capexSalesRow : 21]?.[c]));
   const wcToSalesEst = fcfProjCols.map(c => n(fcf[wcSalesRow >= 0 ? wcSalesRow : 22]?.[c]));
   const netCashChange = fcfProjCols.map(c => n(fcf[netCashRow >= 0 ? netCashRow : 18]?.[c]));
+  const miRow = findRowIdx(is, "minority interest", "minority interests");
+  const projectedMinorityInterest = projCols.map(c => miRow >= 0 ? n(is[miRow]?.[c]) : Number.NaN);
 
   const priceRow = findRowIdx(val, "precio por acción actual", "current price", "precio actual");
   const targetReturnRow = findRowIdx(val, "retorno anual objetivo", "target return", "rendimiento objetivo");
-
-  let targetMultiplesStart = -1;
-  for (let r = 0; r < val.length; r++) {
-    const label = String(val[r]?.[0] || "").toLowerCase();
-    const col1 = String(val[r]?.[1] || "").toLowerCase();
-    if (label.includes("múltiplos de valoración") && col1.includes("objetivo")) {
-      targetMultiplesStart = r;
-      break;
-    }
-  }
-  if (targetMultiplesStart < 0) {
-    let count = 0;
-    for (let r = 0; r < val.length; r++) {
-      if (String(val[r]?.[0] || "").toLowerCase().includes("múltiplos")) {
-        count++;
-        if (count === 2) { targetMultiplesStart = r; break; }
-      }
-    }
-  }
-
-  let targetPER = 20, targetEVFCF = 20, targetEVEBITDA = 15, targetEVEBIT = 15;
-  if (targetMultiplesStart >= 0) {
-    for (let r = targetMultiplesStart + 1; r < Math.min(targetMultiplesStart + 6, val.length); r++) {
-      const label = normalizeMetricLabel(val[r]?.[0]);
-      const v = n(val[r]?.[1]);
-      if (label === "per") targetPER = v;
-      else if (label === "ev/fcf") targetEVFCF = v;
-      else if (label === "ev/ebitda") targetEVEBITDA = v;
-      else if (label === "ev/ebit") targetEVEBIT = v;
-    }
-  }
-
-  let valProjCols = projCols;
-  if (val.length > 0) {
-    for (let r = 0; r < Math.min(5, val.length); r++) {
-      const row = val[r];
-      if (!row) continue;
-      const hasYear = row.some((cell: unknown) => {
-        if (typeof cell === "number") return (cell >= 2000 && cell <= 2060) || (cell > 30000 && cell < 60000);
-        return false;
-      });
-      if (hasYear) {
-        valProjCols = findProjectedCols(val[r]).projCols;
-        break;
-      }
-    }
-  }
-  const ndEbitdaRow = findRowIdx(val, "deuda neta / ebitda", "net debt / ebitda", "nd/ebitda");
-  const netDebtToEBITDA = valProjCols.map(c => n(val[ndEbitdaRow >= 0 ? ndEbitdaRow : 4]?.[c]));
-
-  // Extract projected tax rates from IS sheet
-  const taxRateRow = findRowIdx(is, "tax rate", "tasa impositiva");
-  const taxRateEst = projCols.map(c => {
-    if (taxRateRow >= 0) return n(is[taxRateRow]?.[c]);
-    return 0; // will be filled by engine median
-  });
-
+...
   return {
     lastSales,
     lastDA,
@@ -779,5 +725,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     targetEVEBITDA,
     targetEVEBIT,
     targetReturn: n(val[targetReturnRow >= 0 ? targetReturnRow : 50]?.[1]) || 0.15,
+    projectedMinorityInterest,
   };
 }
