@@ -345,6 +345,7 @@ export function extractTikrData(wb: XLSX.WorkBook): TikrRawData | null {
     currentCapLeases: g(bs, bsH, "Current Portion of Capital Lease", "Current Operating Lease", "Arrendamientos corriente"),
     ncCapLeases: g(bs, bsH, "Capital Leases", "Operating Lease Liabilities", "Arrendamientos no corriente"),
     totalEquity: g(bs, bsH, "Total Equity", "Total Stockholders Equity", "Patrimonio total"),
+    totalDA: [],
     depreciation: findDepreciationValues(cf, cfH.cols),
     amortGoodwill: findAmortizationValues(cf, cfH.cols),
     capex: g(cf, cfH, "Capital Expenditure", "CapEx", "Inversión en capital"),
