@@ -42,6 +42,7 @@ export interface TikrRawData {
   currentCapLeases: number[];
   ncCapLeases: number[];
   totalEquity: number[];
+  totalDA: number[];
   depreciation: number[];
   amortGoodwill: number[];
   capex: number[];
