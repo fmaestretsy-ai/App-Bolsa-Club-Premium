@@ -162,12 +162,13 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const capexRaw = sa(raw.capex, i);
     const salePPE = sa(raw.salePPE, i);
     const saleIntang = sa(raw.saleIntangibles, i);
+    const capexMantOverride = raw.capexMantOverride?.[i] ?? 0;
     const capexNeto = capexRaw + saleIntang + salePPE;
     const absDeprec = Math.abs(deprec);
     const capexMantBase = Math.abs(capexNeto) < absDeprec
       ? capexNeto
       : -absDeprec;
-    const capexMant = capexMantBase + saleIntang;
+    const capexMant = capexMantOverride !== 0 ? capexMantOverride : capexMantBase + saleIntang;
 
     // Step 4: FCF
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;

@@ -419,6 +419,36 @@ function readTotalDAFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
   raw.totalDA = totalDA;
 }
 
+function readCapexMantOverrideFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
+  const fcf2 = findSheet(wb, "2.FCF");
+  if (fcf2.length < 5) return;
+
+  const headerRow = fcf2[1];
+  const capexMantRowIdx = findRowIdx(fcf2, "capex mantenimiento", "maintenance capex");
+  if (!headerRow || capexMantRowIdx < 0) return;
+
+  const capexMantRow = fcf2[capexMantRowIdx];
+  const overrides: number[] = [];
+
+  for (let i = 0; i < raw.years.length; i++) {
+    const year = raw.years[i];
+    let value = 0;
+
+    for (let c = 1; c < headerRow.length; c++) {
+      const cell = headerRow[c];
+      const parsedYear = parseInt(String(cell), 10);
+      if (parsedYear === year) {
+        value = n(capexMantRow?.[c]);
+        break;
+      }
+    }
+
+    overrides.push(value);
+  }
+
+  raw.capexMantOverride = overrides;
+}
+
 /**
  * Read computed 2025 values from 1.IS, 2.FCF, 3.ROIC, 4.Valoracion
  * and CF items from TIKR CF LTM column.
