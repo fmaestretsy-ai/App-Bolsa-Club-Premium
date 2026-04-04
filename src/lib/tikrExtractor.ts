@@ -452,7 +452,7 @@ function appendLTMFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): void {
 
   // Read key IS values
   const salesRow = findRowIdx(is1, "sales", "ventas");
-  const daRow = findRowIdx(is1, "depreciation & amortization", "d&a");
+  const _daRow = findRowIdx(is1, "depreciation & amortization", "d&a");
   const ebitRow = findRowIdx(is1, "ebit ");
   const intExpRow = findRowIdx(is1, "interest expense");
   const intIncRow = findRowIdx(is1, "interest income");
