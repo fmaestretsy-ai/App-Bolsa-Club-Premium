@@ -58,6 +58,7 @@ export interface TikrRawData {
   debtRepaid: number[];
   netCashChangeHist: number[];
   marketCapMM: number[];
+  capexMantOverride?: number[];
 }
 
 export interface TikrModelInputs {
@@ -78,6 +79,7 @@ export interface TikrModelInputs {
   targetEVEBIT: number;
   taxRateEst: number[];
   targetReturn: number;
+  projectedMinorityInterest?: number[];
 }
 
 // ─── Helpers ───
