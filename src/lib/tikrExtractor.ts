@@ -764,9 +764,31 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const projectedInterestIncome = readProjectedValues(is, interestIncomeRow, projCols);
   const projectedTaxExpense = readProjectedValues(is, taxExpenseRow, projCols);
 
-  const capexMantRow = findRowIdx(fcf, "capex mantenimiento", "maintenance capex");
-  const wcRow = findRowIdx(fcf, "working capital - wc", "working capital");
-  const cwcRow = findRowIdx(fcf, "variación de working capital", "variation of working capital", "cwc");
+  const findExactOrPartialRowIdx = (sheet: unknown[][], exactLabels: string[], ...terms: string[]) => {
+    const normalizedExact = exactLabels.map(normalizeLabel);
+    const exactIdx = sheet.findIndex(row => normalizedExact.includes(normalizeLabel(row?.[0])));
+    return exactIdx >= 0 ? exactIdx : findRowIdx(sheet, ...terms);
+  };
+
+  const capexMantRow = findExactOrPartialRowIdx(
+    fcf,
+    ["(-) capex mantenimiento - en negativo", "(-) maintenance capex"],
+    "capex mantenimiento",
+    "maintenance capex"
+  );
+  const wcRow = findExactOrPartialRowIdx(
+    fcf,
+    ["working capital - wc"],
+    "working capital - wc",
+    "working capital"
+  );
+  const cwcRow = findExactOrPartialRowIdx(
+    fcf,
+    ["(-) variación de working capital - cwc", "(-) variation of working capital - cwc"],
+    "variación de working capital",
+    "variation of working capital",
+    "cwc"
+  );
   const projectedCapexMant = readProjectedValues(fcf, capexMantRow, fcfProjCols);
   const projectedWC = readProjectedValues(fcf, wcRow, fcfProjCols);
   const projectedCWC = readProjectedValues(fcf, cwcRow, fcfProjCols);
