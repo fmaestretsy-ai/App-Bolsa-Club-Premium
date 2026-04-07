@@ -70,9 +70,8 @@ export default function ExcelUpload() {
         .maybeSingle();
 
       if (existing) {
-        toast.warning(t("upload.duplicate"));
-        setIsProcessing(false);
-        return;
+        // Allow re-upload: delete the old record so data gets refreshed
+        await supabase.from("excel_uploads").delete().eq("id", existing.id);
       }
 
       let parsed: ParsedFinancialData;

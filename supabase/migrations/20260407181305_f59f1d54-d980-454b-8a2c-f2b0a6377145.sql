@@ -1,0 +1,1 @@
+UPDATE public.companies SET target_price_5y = 3646.13, estimated_annual_return = 0.1386, current_price = 1905.54, currency = 'USD', price_for_15_return = 1812.77 WHERE ticker = 'CSU';
