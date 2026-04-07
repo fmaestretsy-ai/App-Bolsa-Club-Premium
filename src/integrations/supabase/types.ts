@@ -667,6 +667,99 @@ export type Database = {
           },
         ]
       }
+      realized_gains: {
+        Row: {
+          company_id: string
+          cost_basis_base: number
+          created_at: string
+          gain_loss_base: number
+          id: string
+          lots_consumed: Json
+          portfolio_id: string
+          proceeds_base: number
+          sell_date: string
+          sell_trade_id: string | null
+          shares_sold: number
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          cost_basis_base: number
+          created_at?: string
+          gain_loss_base: number
+          id?: string
+          lots_consumed?: Json
+          portfolio_id: string
+          proceeds_base: number
+          sell_date: string
+          sell_trade_id?: string | null
+          shares_sold: number
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          cost_basis_base?: number
+          created_at?: string
+          gain_loss_base?: number
+          id?: string
+          lots_consumed?: Json
+          portfolio_id?: string
+          proceeds_base?: number
+          sell_date?: string
+          sell_trade_id?: string | null
+          shares_sold?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tax_lots: {
+        Row: {
+          company_id: string
+          cost_per_share: number
+          cost_per_share_base: number
+          created_at: string
+          currency: string
+          fx_rate_to_base: number
+          id: string
+          portfolio_id: string
+          purchase_date: string
+          shares_original: number
+          shares_remaining: number
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          cost_per_share: number
+          cost_per_share_base: number
+          created_at?: string
+          currency?: string
+          fx_rate_to_base?: number
+          id?: string
+          portfolio_id: string
+          purchase_date: string
+          shares_original: number
+          shares_remaining: number
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          cost_per_share?: number
+          cost_per_share_base?: number
+          created_at?: string
+          currency?: string
+          fx_rate_to_base?: number
+          id?: string
+          portfolio_id?: string
+          purchase_date?: string
+          shares_original?: number
+          shares_remaining?: number
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       trades: {
         Row: {
           amount_base: number | null
