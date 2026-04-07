@@ -70,7 +70,7 @@ export interface TikrModelInputs {
   shareDilutionRate: number;
   capexMantToSales: number[];
   wcToSalesEst: number[];
-  netCashChange: number[];
+  
   currentPrice: number;
   targetPER: number;
   targetEVFCF: number;
@@ -732,7 +732,7 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
 
   const capexMantToSales = fcfProjCols.map(c => n(fcf[capexSalesRow >= 0 ? capexSalesRow : 21]?.[c]));
   const wcToSalesEst = fcfProjCols.map(c => n(fcf[wcSalesRow >= 0 ? wcSalesRow : 22]?.[c]));
-  const netCashChange = fcfProjCols.map(c => n(fcf[netCashRow >= 0 ? netCashRow : 18]?.[c]));
+  
   const miRow = findRowIdx(is, "minority interest", "minority interests");
   const projectedMinorityInterest = projCols.map(c => miRow >= 0 ? n(is[miRow]?.[c]) : Number.NaN);
 
