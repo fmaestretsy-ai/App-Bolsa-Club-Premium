@@ -712,7 +712,7 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
 
   const capexSalesRow = findRowIdx(fcf, "capex mantenimiento / ventas", "capex mant", "maintenance capex / sales");
   const wcSalesRow = findRowIdx(fcf, "working capital / ventas", "wc / ventas", "wc / sales");
-  const netCashRow = findRowIdx(fcf, "net change in cash", "cambio neto en efectivo", "net cash change");
+  
 
   let fcfProjCols = projCols;
   if (fcf.length > 0) {
@@ -813,7 +813,7 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     shareDilutionRate,
     capexMantToSales,
     wcToSalesEst,
-    netCashChange,
+    
     taxRateEst,
     currentPrice: extractPrimaryPrice(val[priceRow >= 0 ? priceRow : 18]),
     targetPER,

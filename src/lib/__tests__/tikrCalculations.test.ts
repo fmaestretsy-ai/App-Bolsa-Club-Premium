@@ -64,7 +64,7 @@ function makeInputs(): TikrModelInputs {
     shareDilutionRate: 0.01,
     capexMantToSales: [0.06, 0.06, 0.06, 0.06, 0.06],
     wcToSalesEst: [-0.08, -0.08, -0.08, -0.08, -0.08],
-    netCashChange: [0, 0, 0, 0, 0],
+    
     currentPrice: 220, targetPER: 50, targetEVFCF: 40,
     targetEVEBITDA: 25, targetEVEBIT: 30,
     taxRateEst: [], targetReturn: 0.15, projectedMinorityInterest: [],
