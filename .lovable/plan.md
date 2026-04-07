@@ -1,47 +1,83 @@
 
 
-## Verification Report: v2026.1 Template Adaptation
+# Plan: Fase 1 -- Cartera + Dashboard + Operaciones
 
-### What was requested
-The v2026.1 template changes the projection of "Net Change in Cash" to be driven by **capital allocation** (CapEx Expansion, Acquisitions, Dividends, Buybacks, Debt Repayment as % of FCF), replacing the old manual Net Debt/EBITDA ratio. The Net Debt in sheet 4.Valoración now flows automatically from this calculation.
+La Fase 1 del PRD es amplia. Para no sobrecargar una sola iteracion, la dividimos en **3 subfases** que se implementaran secuencialmente. Este plan cubre la **Subfase 1A** completa y describe las siguientes.
 
-### Code review findings
+---
 
-**Correct implementations:**
-1. `netCashChange = FCF × (1 - totalAllocPct)` — line 375 of tikrCalculations.ts
-2. `netDebt = prevNetDebt - netCashChange` — line 378, correctly accumulates
-3. Guidance overrides (CapEx total, Acquisitions, Buybacks) extracted from "Guidance directiva" section — lines 773-799 of tikrExtractor.ts
-4. Allocation percentages use median of individual components (not median of total) — lines 302-306
-5. Net Debt/EBITDA is now a pure output, no longer a manual input
-6. Balance sheet items (Cash, Debt) derived from projected Net Debt — lines 382-387
+## Resumen de Subfases
 
-**Potential issue found — CapEx Mant double-counting of saleIntangibles:**
+| Subfase | Contenido |
+|---------|-----------|
+| **1A** (este plan) | Nuevas tablas + tipos de operacion ampliados + formulario mejorado + historial con filtros |
+| **1B** | Rediseno de cartera (tabla con filtros, busqueda, ordenacion, peso %, tipo de activo, exposicion) |
+| **1C** | Dashboard principal rediseñado (KPIs, graficos de exposicion por sector/pais/divisa/tipo activo, dividendos acumulados, alertas) |
 
-Line 166-171 of tikrCalculations.ts:
-```text
-capexNeto = capexRaw + saleIntang + salePPE
-capexMantBase = |capexNeto| < deprec ? capexNeto : -deprec
-capexMant = capexMantBase + saleIntang   ← adds saleIntang again
-```
+---
 
-When `|capexNeto| < depreciation` AND `saleIntangibles ≠ 0`, `saleIntangibles` gets counted twice. This path is not triggered in current test cases (AMZN has saleIntang=0, ASML always exceeds depreciation), but it is a latent bug that could affect other companies.
+## Subfase 1A: Operaciones completas y base de datos
 
-**Dead code:** `inputs.netCashChange` is extracted (line 735) but never used in projections — correct for v2026.1, but should be cleaned up.
+### 1. Migracion de base de datos
 
-### Plan
+Ampliar la tabla `trades` para soportar los nuevos tipos de operacion del PRD:
 
-1. **Fix the saleIntangibles double-counting bug** in the historical CapEx Mant calculation (tikrCalculations.ts line 166-171). When `|capexNeto| < depreciation`, the result should be `capexNeto` directly (saleIntang is already included), not `capexNeto + saleIntang`.
+- Añadir columna `commission` (ya existe, verificar default 0)
+- Ampliar los valores posibles de `trade_type` (actualmente solo buy/sell) para incluir: `dividend`, `commission`, `withholding`, `split`, `cash_in`, `cash_out`, `fx_exchange`
+- Añadir columnas: `currency_original` (text), `fx_rate_to_base` (numeric, default 1), `amount_base` (numeric) a la tabla `trades`
+- Añadir `base_currency` (text, default 'EUR') a tabla `profiles`
+- Añadir `asset_type` (text, default 'stock') a tabla `companies` para soportar acciones, ETFs, fondos, renta fija, liquidez
 
-2. **Remove dead `netCashChange` extraction** from `extractManualInputs` and `TikrModelInputs` interface, since projections now calculate it from allocation percentages.
+Crear tabla `fx_rates`:
+- `id`, `from_currency`, `to_currency`, `date`, `rate`, `source`, `created_at`
+- RLS: lectura publica, escritura por usuario autenticado
 
-3. **Run the CSU debug script** against the uploaded Excel to verify projected FCF, Net Change in Cash, Net Debt, and Net Debt/EBITDA match the workbook exactly for years 2026-2030.
+### 2. Formulario de operacion mejorado (`TradeDialog.tsx`)
 
-4. **Add a regression test** for the saleIntangibles edge case (company where `|capexNeto| < depreciation` AND `saleIntangibles ≠ 0`).
+Rediseñar el dialogo para soportar todos los tipos:
 
-### Technical details
+- Selector de tipo ampliado: Compra, Venta, Dividendo, Comision, Retencion, Split, Ingreso efectivo, Retirada efectivo, Cambio divisa
+- Campos condicionales segun tipo (ej: Split solo pide ratio, Dividendo no pide precio por accion)
+- Campo de divisa original + tipo de cambio (auto-rellenado si existe en fx_rates, editable manualmente)
+- Calculo automatico de `amount_base` = total * fx_rate
+- Validaciones: no permitir vender mas de lo que se tiene, split requiere ratio > 0
 
-**File changes:**
-- `src/lib/tikrCalculations.ts`: Fix line 171 to `capexMantBase + (Math.abs(capexNeto) >= absDeprec ? saleIntang : 0)` — only add saleIntang separately when it wasn't already included via `capexNeto`
-- `src/lib/tikrExtractor.ts`: Remove `netCashChange` from `TikrModelInputs` and its extraction logic
-- `src/lib/__tests__/tikrCalculations.test.ts`: Add edge case test
+### 3. Historial de operaciones mejorado (`TradeHistory.tsx`)
+
+- Filtros por: tipo de operacion, empresa/activo, rango de fechas
+- Ordenacion por columna (fecha, tipo, ticker, total)
+- Badge con color diferente por tipo de operacion
+- Mostrar divisa original y equivalente en moneda base
+- Paginacion si hay muchas operaciones
+
+### 4. Logica de recalculo de posiciones
+
+Actualizar la logica en `TradeDialog.tsx` para manejar cada tipo:
+
+- **Dividendo**: no cambia shares ni avg_cost, solo se registra
+- **Comision/Retencion**: se restan del valor, no cambian posicion
+- **Split**: multiplica shares por ratio, divide avg_cost por ratio
+- **Cash_in/Cash_out**: operaciones de liquidez (sin company_id)
+- **FX exchange**: conversion entre divisas
+- **Compra/Venta**: logica existente (mantener)
+
+---
+
+## Archivos a crear/modificar
+
+| Archivo | Accion |
+|---------|--------|
+| `supabase/migrations/...` | Nueva migracion con ALTER TABLE y CREATE TABLE |
+| `src/components/TradeDialog.tsx` | Rediseño completo del formulario |
+| `src/pages/TradeHistory.tsx` | Añadir filtros, ordenacion, nuevos badges |
+| `src/types/index.ts` | Añadir tipos para los nuevos trade types |
+
+---
+
+## Lo que NO se toca en esta subfase
+
+- El modulo de valoracion y subida de Excel (intacto)
+- El dashboard principal (se mejora en 1C)
+- La vista de cartera (se mejora en 1B)
+- Graficos de exposicion (subfase 1C)
 
