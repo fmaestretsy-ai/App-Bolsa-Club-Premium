@@ -79,16 +79,55 @@ export interface PortfolioPosition {
   currency: string;
 }
 
+export const TRADE_TYPES = ["buy", "sell", "dividend", "commission", "withholding", "split", "cash_in", "cash_out", "fx_exchange"] as const;
+export type TradeType = typeof TRADE_TYPES[number];
+
+export const TRADE_TYPE_LABELS: Record<TradeType, string> = {
+  buy: "Compra",
+  sell: "Venta",
+  dividend: "Dividendo",
+  commission: "Comisión",
+  withholding: "Retención",
+  split: "Split",
+  cash_in: "Ingreso",
+  cash_out: "Retirada",
+  fx_exchange: "Cambio divisa",
+};
+
+export const TRADE_TYPE_COLORS: Record<TradeType, string> = {
+  buy: "bg-green-600 text-white",
+  sell: "bg-red-600 text-white",
+  dividend: "bg-blue-600 text-white",
+  commission: "bg-orange-500 text-white",
+  withholding: "bg-yellow-600 text-white",
+  split: "bg-purple-600 text-white",
+  cash_in: "bg-emerald-500 text-white",
+  cash_out: "bg-rose-500 text-white",
+  fx_exchange: "bg-cyan-600 text-white",
+};
+
+/** Trade types that require a company selection */
+export const TRADE_NEEDS_COMPANY: TradeType[] = ["buy", "sell", "dividend", "commission", "withholding", "split"];
+/** Trade types that require shares + price fields */
+export const TRADE_NEEDS_SHARES: TradeType[] = ["buy", "sell"];
+/** Trade types that require an amount (total) */
+export const TRADE_NEEDS_AMOUNT: TradeType[] = ["dividend", "commission", "withholding", "cash_in", "cash_out", "fx_exchange"];
+/** Trade types that need a split ratio */
+export const TRADE_NEEDS_RATIO: TradeType[] = ["split"];
+
 export interface Trade {
   id: string;
   companyName: string;
   ticker: string;
-  type: "buy" | "sell";
-  shares: number;
-  price: number;
+  type: TradeType;
+  shares: number | null;
+  price: number | null;
   total: number;
   date: string;
   currency: string;
+  currencyOriginal?: string;
+  fxRateToBase?: number;
+  amountBase?: number;
 }
 
 export type Recommendation = "buy" | "hold" | "sell";
