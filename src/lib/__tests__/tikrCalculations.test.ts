@@ -149,7 +149,6 @@ describe("tikrCalculations – CapEx Mant uses Depreciation only (not Total D&A)
     expect(result.hist[1].roic).toBeCloseTo(0.39720239629262394, 10);
     expect(result.hist[1].reinvRate).toBeCloseTo(0.09772488738894734, 10);
   });
-  });
 
   it("no double-counting saleIntangibles when |capexNeto| < depreciation", () => {
     // capex=-500, saleIntang=-100, salePPE=0 → capexNeto=-600, deprec=1000
