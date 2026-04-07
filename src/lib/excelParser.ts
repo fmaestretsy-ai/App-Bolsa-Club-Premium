@@ -411,6 +411,16 @@ function extractSummaryData(wb: XLSX.WorkBook, companyCurrency: string | null = 
       targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
     }
 
+    // Always recalculate priceFor15Return from targetPrice5y to ensure consistent currency
+    if (targetPrice5y) {
+      const years = projectionTargets.length > 0
+        ? projectionTargets[projectionTargets.length - 1].year - new Date().getFullYear() + 1
+        : 5;
+      if (years > 0) {
+        priceFor15Return = targetPrice5y / Math.pow(1.15, years);
+      }
+    }
+
     // Compute estimatedAnnualReturn from currentPrice and targetPrice5y if not extracted
     if (estimatedAnnualReturn === null && targetPrice5y && currentPrice && currentPrice > 0) {
       const years = projectionTargets.length > 0
