@@ -208,7 +208,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const divPaid = Math.abs(sa(raw.dividendsPaid, i));
     const buyback = Math.abs(sa(raw.repurchaseStock, i));
     const debtRep = Math.max(0, Math.abs(sa(raw.debtRepaid, i)) - sa(raw.debtIssued, i));
-    const fcfAbs = Math.abs(fcf);
+    
     const fcfPos = fcf > 0 ? fcf : 0;
 
     // Step 9: Red flags — sum specific extraordinary items
