@@ -486,6 +486,39 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_notes: {
+        Row: {
+          company_id: string | null
+          content: string | null
+          created_at: string
+          id: string
+          title: string
+          trade_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          title: string
+          trade_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          trade_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_snapshots: {
         Row: {
           company_id: string
@@ -750,6 +783,48 @@ export type Database = {
           sell_date?: string
           sell_trade_id?: string | null
           shares_sold?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      risk_snapshots: {
+        Row: {
+          country_concentration: Json | null
+          created_at: string
+          currency_concentration: Json | null
+          id: string
+          liquidity_ratio: number | null
+          sector_concentration: Json | null
+          snapshot_date: string
+          top1_weight: number | null
+          top5_weight: number | null
+          total_value: number
+          user_id: string
+        }
+        Insert: {
+          country_concentration?: Json | null
+          created_at?: string
+          currency_concentration?: Json | null
+          id?: string
+          liquidity_ratio?: number | null
+          sector_concentration?: Json | null
+          snapshot_date?: string
+          top1_weight?: number | null
+          top5_weight?: number | null
+          total_value?: number
+          user_id: string
+        }
+        Update: {
+          country_concentration?: Json | null
+          created_at?: string
+          currency_concentration?: Json | null
+          id?: string
+          liquidity_ratio?: number | null
+          sector_concentration?: Json | null
+          snapshot_date?: string
+          top1_weight?: number | null
+          top5_weight?: number | null
+          total_value?: number
           user_id?: string
         }
         Relationships: []
