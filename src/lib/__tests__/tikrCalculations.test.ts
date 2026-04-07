@@ -149,4 +149,62 @@ describe("tikrCalculations – CapEx Mant uses Depreciation only (not Total D&A)
     expect(result.hist[1].roic).toBeCloseTo(0.39720239629262394, 10);
     expect(result.hist[1].reinvRate).toBeCloseTo(0.09772488738894734, 10);
   });
+  });
+
+  it("no double-counting saleIntangibles when |capexNeto| < depreciation", () => {
+    // capex=-500, saleIntang=-100, salePPE=0 → capexNeto=-600, deprec=1000
+    // |600| < 1000 → capexMant = capexNeto = -600 (NOT -600 + (-100) = -700)
+    const result = calculateFullModel(
+      makeRaw({
+        years: [2024],
+        revenues: [10000],
+        operatingIncome: [2000],
+        interestExpense: [-50],
+        interestIncome: [10],
+        taxExpense: [-400],
+        minorityInterest: [0],
+        dilutedShares: [100],
+        basicShares: [100],
+        depreciation: [1000],
+        amortGoodwill: [200],
+        capex: [-500],
+        salePPE: [0],
+        saleIntangibles: [-100],
+        cashAcquisitions: [0],
+        divestitures: [0],
+        sbc: [50],
+        issuanceStock: [0],
+        repurchaseStock: [0],
+        dividendsPaid: [0],
+        debtIssued: [0],
+        debtRepaid: [0],
+        netCashChangeHist: [500],
+        cashEquiv: [2000],
+        totalCashSTI: [2500],
+        inventory: [500],
+        accountsReceivable: [300],
+        accountsPayable: [400],
+        unearnedRevCurrent: [100],
+        unearnedRevNonCurrent: [0],
+        stBorrowings: [0],
+        currentLTD: [0],
+        finDivDebtCurrent: [0],
+        ltBorrowings: [1000],
+        ltDebt: [0],
+        finDivDebtNC: [0],
+        currentCapLeases: [0],
+        ncCapLeases: [0],
+        totalEquity: [5000],
+        assetWritedown: [0],
+        impairmentGoodwill: [0],
+        mergerRestructuring: [0],
+        legalSettlements: [0],
+        otherUnusualItems: [0],
+        marketCapMM: [50000],
+      }),
+      makeInputs(),
+    );
+
+    expect(result.hist[0].capexMant).toBe(-600);
+  });
 });
