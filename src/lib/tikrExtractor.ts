@@ -82,6 +82,13 @@ export interface TikrModelInputs {
   guidanceCapexTotal?: number[];
   guidanceAcquisitions?: number[];
   guidanceBuybacks?: number[];
+  projectedInterestExpense?: number[];
+  projectedInterestIncome?: number[];
+  projectedTaxExpense?: number[];
+  projectedCapexMant?: number[];
+  projectedWC?: number[];
+  projectedCWC?: number[];
+  projectedNetDebt?: number[];
 }
 
 // ─── Helpers ───
@@ -155,6 +162,16 @@ function extractPrimaryPrice(row: unknown[] | null): number {
   }
 
   return lastNumeric;
+}
+
+function extractFirstNumeric(row: unknown[] | null): number {
+  if (!row) return 0;
+  for (let c = 1; c < row.length; c++) {
+    const cell = row[c];
+    if (cell == null || cell === "") continue;
+    if (isNumericLike(cell)) return n(cell);
+  }
+  return 0;
 }
 
 function findExactLabelRow(data: unknown[][], ...labels: string[]): unknown[] | null {
@@ -736,8 +753,50 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
   const miRow = findRowIdx(is, "minority interest", "minority interests");
   const projectedMinorityInterest = projCols.map(c => miRow >= 0 ? n(is[miRow]?.[c]) : Number.NaN);
 
+  const interestExpenseRow = findRowIdx(is, "interest expense");
+  const interestIncomeRow = findRowIdx(is, "interest income");
+  const taxExpenseRow = findRowIdx(is, "tax expense", "impuesto");
+  const readProjectedValues = (sheet: unknown[][], rowIdx: number, cols: number[]): number[] | undefined => {
+    if (rowIdx < 0) return undefined;
+    return cols.map(c => n(sheet[rowIdx]?.[c]));
+  };
+  const projectedInterestExpense = readProjectedValues(is, interestExpenseRow, projCols);
+  const projectedInterestIncome = readProjectedValues(is, interestIncomeRow, projCols);
+  const projectedTaxExpense = readProjectedValues(is, taxExpenseRow, projCols);
+
+  const findExactOrPartialRowIdx = (sheet: unknown[][], exactLabels: string[], ...terms: string[]) => {
+    const normalizedExact = exactLabels.map(normalizeLabel);
+    const exactIdx = sheet.findIndex(row => normalizedExact.includes(normalizeLabel(row?.[0])));
+    return exactIdx >= 0 ? exactIdx : findRowIdx(sheet, ...terms);
+  };
+
+  const capexMantRow = findExactOrPartialRowIdx(
+    fcf,
+    ["(-) capex mantenimiento - en negativo", "(-) maintenance capex"],
+    "capex mantenimiento",
+    "maintenance capex"
+  );
+  const wcRow = findExactOrPartialRowIdx(
+    fcf,
+    ["working capital - wc"],
+    "working capital - wc",
+    "working capital"
+  );
+  const cwcRow = findExactOrPartialRowIdx(
+    fcf,
+    ["(-) variación de working capital - cwc", "(-) variation of working capital - cwc"],
+    "variación de working capital",
+    "variation of working capital",
+    "cwc"
+  );
+  const projectedCapexMant = readProjectedValues(fcf, capexMantRow, fcfProjCols);
+  const projectedWC = readProjectedValues(fcf, wcRow, fcfProjCols);
+  const projectedCWC = readProjectedValues(fcf, cwcRow, fcfProjCols);
+
   const priceRow = findRowIdx(val, "precio por acción actual", "current price", "precio actual");
   const targetReturnRow = findRowIdx(val, "retorno anual objetivo", "target return", "rendimiento objetivo");
+  const netDebtRow = findRowIdx(val, "deuda neta", "net debt");
+  const projectedNetDebt = readProjectedValues(val, netDebtRow, projCols);
 
   let targetMultiplesStart = -1;
   for (let r = 0; r < val.length; r++) {
@@ -815,7 +874,7 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     wcToSalesEst,
     
     taxRateEst,
-    currentPrice: extractPrimaryPrice(val[priceRow >= 0 ? priceRow : 18]),
+    currentPrice: extractFirstNumeric(val[priceRow >= 0 ? priceRow : 18]) || extractPrimaryPrice(val[priceRow >= 0 ? priceRow : 18]),
     targetPER,
     targetEVFCF,
     targetEVEBITDA,
@@ -825,5 +884,12 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     guidanceCapexTotal,
     guidanceAcquisitions,
     guidanceBuybacks,
+    projectedInterestExpense,
+    projectedInterestIncome,
+    projectedTaxExpense,
+    projectedCapexMant,
+    projectedWC,
+    projectedCWC,
+    projectedNetDebt,
   };
 }

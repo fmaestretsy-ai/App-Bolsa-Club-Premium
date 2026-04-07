@@ -418,7 +418,7 @@ export default function FinancialModel() {
                 <Row label="    (-) Accounts Payable" isSubRow values={all("ap")} projStart={N} />
                 <Row label="    (-) Unearned Revenue" isSubRow values={[...hist.map(h => h.urC + h.urNC), ...proj.map(() => null)]} projStart={N} />
                 <Row label="Working Capital" values={all("wc")} projStart={N} />
-                <Row label="(-) Variación WC" values={[...hv("cwc"), ...proj.map((p, j) => j === 0 ? null : p.cwc)]} projStart={N} />
+                <Row label="(-) Variación WC" values={[...hv("cwc"), ...pv("cwc")]} projStart={N} />
                 <Row label="Minority Interest" values={all("mi")} projStart={N} />
                 <Row label="Free Cash Flow" isBold isSeparator values={all("fcf")} projStart={N} />
                 <Row label="    FCF margin %" isSubRow isPercent projStart={N}
