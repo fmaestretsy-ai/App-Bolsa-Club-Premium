@@ -8,6 +8,7 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useCompanyData";
+import { createTaxLot, consumeLotsForSale, adjustLotsForSplit } from "@/lib/fifoEngine";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
