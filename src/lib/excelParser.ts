@@ -291,6 +291,8 @@ function extractSummaryData(wb: XLSX.WorkBook): {
 
       // Extract target multiples (editable orange cells)
       if (inMultiplosObjetivoSection) {
+        let handledTargetMultiple = true;
+
         if (/^PER$/i.test(label)) {
           valuationTargets.targetPer = parseNumericValue(row[1]);
         } else if (/^EV\s*\/\s*FCF/i.test(label)) {
@@ -300,8 +302,14 @@ function extractSummaryData(wb: XLSX.WorkBook): {
         } else if (/^EV\s*\/\s*EBIT/i.test(label)) {
           valuationTargets.targetEvEbit = parseNumericValue(row[1]);
           inMultiplosObjetivoSection = false;
+        } else {
+          handledTargetMultiple = false;
+          inMultiplosObjetivoSection = false;
         }
-        continue;
+
+        if (handledTargetMultiple) {
+          continue;
+        }
       }
 
       // "Precio objetivo" section
