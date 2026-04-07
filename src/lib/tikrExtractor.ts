@@ -770,10 +770,24 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     }
   }
 
-  // ─── Guidance extraction (rows 36-38 in 2.FCF) ───
-  const guidanceCapexRow = findRowIdx(fcf, "capex total");
-  const guidanceAcqRow = guidanceCapexRow >= 0 ? guidanceCapexRow + 1 : findRowIdx(fcf, "adquisiciones");
-  const guidanceBuybackRow = guidanceAcqRow >= 0 ? guidanceAcqRow + 1 : findRowIdx(fcf, "recompras");
+  // ─── Guidance extraction (rows 36-38 in 2.FCF, after "Guidance directiva" header) ───
+  let guidanceSectionStart = -1;
+  for (let r = 0; r < fcf.length; r++) {
+    const label = String(fcf[r]?.[0] || "").toLowerCase();
+    if (label.includes("guidance") || label.includes("directiva")) {
+      guidanceSectionStart = r;
+      break;
+    }
+  }
+  let guidanceCapexRow = -1, guidanceAcqRow = -1, guidanceBuybackRow = -1;
+  if (guidanceSectionStart >= 0) {
+    for (let r = guidanceSectionStart + 1; r < Math.min(guidanceSectionStart + 6, fcf.length); r++) {
+      const label = String(fcf[r]?.[0] || "").toLowerCase().trim();
+      if (label.includes("capex total")) guidanceCapexRow = r;
+      else if (label.includes("adquisicion")) guidanceAcqRow = r;
+      else if (label.includes("recompra")) guidanceBuybackRow = r;
+    }
+  }
 
   const readGuidance = (rowIdx: number): number[] | undefined => {
     if (rowIdx < 0) return undefined;
