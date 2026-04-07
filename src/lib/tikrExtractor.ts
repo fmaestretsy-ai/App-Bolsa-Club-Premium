@@ -71,7 +71,6 @@ export interface TikrModelInputs {
   capexMantToSales: number[];
   wcToSalesEst: number[];
   netCashChange: number[];
-  netDebtToEBITDA: number[];
   currentPrice: number;
   targetPER: number;
   targetEVFCF: number;
@@ -80,6 +79,9 @@ export interface TikrModelInputs {
   taxRateEst: number[];
   targetReturn: number;
   projectedMinorityInterest?: number[];
+  guidanceCapexTotal?: number[];
+  guidanceAcquisitions?: number[];
+  guidanceBuybacks?: number[];
 }
 
 // ─── Helpers ───
