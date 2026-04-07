@@ -53,26 +53,39 @@ export function AppSidebar() {
     { title: t("nav.settings"), url: "/settings", icon: Settings },
   ];
 
+  const isActive = (url: string) => url === "/" ? location.pathname === "/" : location.pathname.startsWith(url);
+
   const renderGroup = (label: string, items: typeof mainItems) => (
     <SidebarGroup key={label}>
-      {!collapsed && <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider">{label}</SidebarGroupLabel>}
+      {!collapsed && (
+        <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] font-semibold uppercase tracking-[0.1em] mb-1 px-3">
+          {label}
+        </SidebarGroupLabel>
+      )}
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.url}>
-              <SidebarMenuButton asChild>
-                <NavLink
-                  to={item.url}
-                  end={item.url === "/"}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/70 transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span className="text-sm">{item.title}</span>}
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) => {
+            const active = isActive(item.url);
+            return (
+              <SidebarMenuItem key={item.url}>
+                <SidebarMenuButton asChild>
+                  <NavLink
+                    to={item.url}
+                    end={item.url === "/"}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-150 ${
+                      active
+                        ? "sidebar-active-item bg-sidebar-accent text-sidebar-primary font-medium"
+                        : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                    }`}
+                    activeClassName="sidebar-active-item bg-sidebar-accent text-sidebar-primary font-medium"
+                  >
+                    <item.icon className={`h-4 w-4 shrink-0 transition-colors ${active ? "text-sidebar-primary" : ""}`} />
+                    {!collapsed && <span>{item.title}</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -81,28 +94,33 @@ export function AppSidebar() {
   const toggleLang = () => i18n.changeLanguage(i18n.language === "es" ? "en" : "es");
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <div className="flex h-14 items-center gap-2 px-4 border-b border-sidebar-border">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border/50">
+      {/* Logo */}
+      <div className="flex h-14 items-center gap-3 px-4 border-b border-sidebar-border/50">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-lg shadow-sidebar-primary/20">
           <TrendingUp className="h-4 w-4 text-sidebar-primary-foreground" />
         </div>
-        {!collapsed && <span className="font-bold text-sidebar-foreground text-lg tracking-tight">Club Premium</span>}
+        {!collapsed && (
+          <span className="font-bold text-sidebar-foreground text-lg tracking-tight">
+            Club <span className="text-sidebar-primary">Premium</span>
+          </span>
+        )}
       </div>
-      <SidebarContent className="pt-2">
+      <SidebarContent className="pt-3 px-2">
         {renderGroup("General", mainItems)}
         {renderGroup(collapsed ? "" : (i18n.language === "es" ? "Análisis" : "Analysis"), analysisItems)}
         {renderGroup(collapsed ? "" : (i18n.language === "es" ? "Cartera" : "Portfolio"), portfolioItems)}
         {renderGroup(collapsed ? "" : (i18n.language === "es" ? "Sistema" : "System"), systemItems)}
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border p-2">
+      <SidebarFooter className="border-t border-sidebar-border/50 p-3">
         <div className={`flex ${collapsed ? "flex-col" : "flex-row"} items-center gap-1`}>
-          <button onClick={toggleTheme} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+          <button onClick={toggleTheme} className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-all duration-150" title={theme === "dark" ? "Light mode" : "Dark mode"}>
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <button onClick={toggleLang} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors text-xs font-semibold">
+          <button onClick={toggleLang} className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-all duration-150 text-xs font-bold" title="Switch language">
             {i18n.language === "es" ? "EN" : "ES"}
           </button>
-          <button onClick={async () => { await signOut(); navigate("/login"); }} className="flex items-center justify-center h-8 w-8 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
+          <button onClick={async () => { await signOut(); navigate("/login"); }} className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-destructive/20 text-sidebar-foreground/50 hover:text-destructive transition-all duration-150" title="Sign out">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
