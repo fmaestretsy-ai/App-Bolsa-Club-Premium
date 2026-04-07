@@ -174,6 +174,69 @@ async function fetchFxRate(from: string, to: string): Promise<number | null> {
   }
 }
 
+const YAHOO_EXCHANGE_SUFFIX: Record<string, string> = {
+  TSX: ".TO",
+};
+
+async function fetchFromYahooFinance(
+  ticker: string,
+  preferredExchange: string,
+  targetCurrency?: string,
+): Promise<StockData | null> {
+  const suffix = YAHOO_EXCHANGE_SUFFIX[preferredExchange];
+  if (!suffix) return null;
+
+  const symbol = `${ticker}${suffix}`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "application/json,text/plain,*/*",
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const payload = await res.json();
+    const meta = payload?.chart?.result?.[0]?.meta;
+    const price = toNumber(meta?.regularMarketPrice);
+    if (!price) return null;
+
+    const exchangeCurrency = typeof meta?.currency === "string"
+      ? meta.currency
+      : (EXCHANGE_CURRENCY[preferredExchange] || "USD");
+
+    console.log(`${ticker}@${preferredExchange} via Yahoo: price=${price} ${exchangeCurrency}, 52wH=${meta?.fiftyTwoWeekHigh ?? null}, 52wL=${meta?.fiftyTwoWeekLow ?? null}`);
+
+    if (targetCurrency && targetCurrency !== exchangeCurrency) {
+      const fxRate = await fetchFxRate(exchangeCurrency, targetCurrency);
+      if (fxRate) {
+        return {
+          price: Math.round(price * fxRate * 100) / 100,
+          week52High: toNumber(meta?.fiftyTwoWeekHigh) ? Math.round(Number(meta.fiftyTwoWeekHigh) * fxRate * 100) / 100 : null,
+          week52Low: toNumber(meta?.fiftyTwoWeekLow) ? Math.round(Number(meta.fiftyTwoWeekLow) * fxRate * 100) / 100 : null,
+          sector: null,
+          sourceCurrency: exchangeCurrency,
+          fxRate,
+        };
+      }
+    }
+
+    return {
+      price,
+      week52High: toNumber(meta?.fiftyTwoWeekHigh),
+      week52Low: toNumber(meta?.fiftyTwoWeekLow),
+      sector: null,
+      sourceCurrency: exchangeCurrency,
+    };
+  } catch (error) {
+    console.error(`Yahoo fetch error for ${symbol}:`, error);
+    return null;
+  }
+}
+
 /**
  * Fetch stock price. 
  * - `sourceCurrency`: the currency of the exchange where the stock primarily trades (e.g. CAD for TSX)
@@ -184,19 +247,30 @@ async function fetchFromGoogleFinance(
   ticker: string,
   targetCurrency?: string,
   sourceCurrency?: string,
+  preferredExchange?: string | null,
 ): Promise<StockData> {
   const defaultExchanges = ["NASDAQ", "NYSE", "EPA", "BIT", "TSE", "AMS", "SWX", "TPE"];
   const cleanTicker = ticker.includes(":") ? ticker : null;
 
+  if (!cleanTicker && preferredExchange) {
+    const yahooData = await fetchFromYahooFinance(ticker, preferredExchange, targetCurrency);
+    if (yahooData?.price) return yahooData;
+  }
+
   let exchanges: string[];
   if (cleanTicker) {
     exchanges = [];
+  } else if (preferredExchange) {
+    exchanges = [
+      preferredExchange,
+      ...defaultExchanges.filter((exchange) => exchange !== preferredExchange && !(preferredExchange === "TSX" && exchange === "TSE")),
+    ];
   } else if (sourceCurrency && EXCHANGE_BY_CURRENCY[sourceCurrency]) {
     // Prioritize exchanges for the SOURCE currency (where the stock actually trades)
     const sourceExchanges = EXCHANGE_BY_CURRENCY[sourceCurrency];
     exchanges = [
       ...sourceExchanges,
-      ...defaultExchanges.filter((e) => !sourceExchanges.includes(e)),
+      ...defaultExchanges.filter((e) => !sourceExchanges.includes(e) && !(sourceCurrency === "CAD" && e === "TSE")),
     ];
   } else if (targetCurrency && targetCurrency !== "USD" && EXCHANGE_BY_CURRENCY[targetCurrency]) {
     // Fallback: try target currency exchanges first
@@ -276,7 +350,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { ticker, currency, sourceCurrency } = await req.json();
+    const { ticker, currency, sourceCurrency, exchange } = await req.json();
 
     if (!ticker) {
       return new Response(
@@ -285,8 +359,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Fetching price for:", ticker, currency ? `(target: ${currency})` : "", sourceCurrency ? `(source: ${sourceCurrency})` : "");
-    const data = await fetchFromGoogleFinance(ticker, currency, sourceCurrency);
+    console.log("Fetching price for:", ticker, currency ? `(target: ${currency})` : "", sourceCurrency ? `(source: ${sourceCurrency})` : "", exchange ? `(exchange: ${exchange})` : "");
+    const data = await fetchFromGoogleFinance(ticker, currency, sourceCurrency, exchange);
 
     return new Response(
       JSON.stringify({ success: true, data }),
