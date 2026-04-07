@@ -184,6 +184,7 @@ async function fetchFromGoogleFinance(
   ticker: string,
   targetCurrency?: string,
   sourceCurrency?: string,
+  preferredExchange?: string | null,
 ): Promise<StockData> {
   const defaultExchanges = ["NASDAQ", "NYSE", "EPA", "BIT", "TSE", "AMS", "SWX", "TPE"];
   const cleanTicker = ticker.includes(":") ? ticker : null;
@@ -191,6 +192,11 @@ async function fetchFromGoogleFinance(
   let exchanges: string[];
   if (cleanTicker) {
     exchanges = [];
+  } else if (preferredExchange) {
+    exchanges = [
+      preferredExchange,
+      ...defaultExchanges.filter((exchange) => exchange !== preferredExchange),
+    ];
   } else if (sourceCurrency && EXCHANGE_BY_CURRENCY[sourceCurrency]) {
     // Prioritize exchanges for the SOURCE currency (where the stock actually trades)
     const sourceExchanges = EXCHANGE_BY_CURRENCY[sourceCurrency];
@@ -276,7 +282,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { ticker, currency, sourceCurrency } = await req.json();
+    const { ticker, currency, sourceCurrency, exchange } = await req.json();
 
     if (!ticker) {
       return new Response(
@@ -285,8 +291,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Fetching price for:", ticker, currency ? `(target: ${currency})` : "", sourceCurrency ? `(source: ${sourceCurrency})` : "");
-    const data = await fetchFromGoogleFinance(ticker, currency, sourceCurrency);
+    console.log("Fetching price for:", ticker, currency ? `(target: ${currency})` : "", sourceCurrency ? `(source: ${sourceCurrency})` : "", exchange ? `(exchange: ${exchange})` : "");
+    const data = await fetchFromGoogleFinance(ticker, currency, sourceCurrency, exchange);
 
     return new Response(
       JSON.stringify({ success: true, data }),

@@ -71,7 +71,7 @@ export default function Tracking() {
       const sourceCurrency = company.exchange ? exchangeToCurrency[company.exchange] : undefined;
 
       const { data, error } = await supabase.functions.invoke("fetch-stock-price", {
-        body: { ticker: company.ticker, currency: company.currency, sourceCurrency },
+        body: { ticker: company.ticker, currency: company.currency, sourceCurrency, exchange: company.exchange },
       });
       if (error) throw error;
       if (data?.success && data.data?.price) {
