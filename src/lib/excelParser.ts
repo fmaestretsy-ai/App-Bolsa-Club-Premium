@@ -331,42 +331,48 @@ function extractSummaryData(wb: XLSX.WorkBook): {
         };
 
         const lowerLabel = label.toLowerCase().trim();
-        for (const [key, field] of Object.entries(methodMap)) {
-          if (lowerLabel.startsWith(key)) {
-            for (let i = 0; i < precioObjetivoYears.length; i++) {
-              const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
-              let existing = targetPricesByMethod.find(t => t.year === precioObjetivoYears[i]);
-              if (!existing) {
-                existing = { year: precioObjetivoYears[i], perExCash: null, evFcf: null, evEbitda: null, evEbit: null, average: null };
-                targetPricesByMethod.push(existing);
-              }
-              if (val !== null && val > 1) {
-                (existing as any)[field] = val;
-              }
-            }
 
-            // For EV/FCF row, also extract CAGR and projection targets
-            if (field === "evFcf") {
+        // Skip currency-variant rows (e.g. "EV / FCF (CAD)") — only use base/USD row
+        const isCurrencyVariant = /\((?!usd)[a-z]{3}\)$/i.test(lowerLabel);
+
+        if (!isCurrencyVariant) {
+          for (const [key, field] of Object.entries(methodMap)) {
+            if (lowerLabel.startsWith(key)) {
               for (let i = 0; i < precioObjetivoYears.length; i++) {
                 const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
-                if (val && val > 1) {
-                  projectionTargets.push({ year: precioObjetivoYears[i], targetPrice: val });
+                let existing = targetPricesByMethod.find(t => t.year === precioObjetivoYears[i]);
+                if (!existing) {
+                  existing = { year: precioObjetivoYears[i], perExCash: null, evFcf: null, evEbitda: null, evEbit: null, average: null };
+                  targetPricesByMethod.push(existing);
+                }
+                if (val !== null && val > 1) {
+                  (existing as any)[field] = val;
                 }
               }
-              // CAGR
-              for (let c = row.length - 1; c >= 6; c--) {
-                const val = parseNumericValue(row[c]);
-                if (val !== null && Math.abs(val) < 1) {
-                  estimatedAnnualReturn = val;
-                  break;
-                }
-              }
-            }
 
-            if (field === "average" || field === "evEbit") {
-              // Check if we've processed all methods
+              // For EV/FCF row, also extract CAGR and projection targets
+              if (field === "evFcf") {
+                for (let i = 0; i < precioObjetivoYears.length; i++) {
+                  const val = parseNumericValue(row[precioObjetivoColIndices[i]]);
+                  if (val && val > 1) {
+                    projectionTargets.push({ year: precioObjetivoYears[i], targetPrice: val });
+                  }
+                }
+                // CAGR
+                for (let c = row.length - 1; c >= 6; c--) {
+                  const val = parseNumericValue(row[c]);
+                  if (val !== null && Math.abs(val) < 1) {
+                    estimatedAnnualReturn = val;
+                    break;
+                  }
+                }
+              }
+
+              if (field === "average" || field === "evEbit") {
+                // Check if we've processed all methods
+              }
+              break;
             }
-            break;
           }
         }
 
@@ -386,6 +392,16 @@ function extractSummaryData(wb: XLSX.WorkBook): {
     // Set 5Y target from last projection
     if (projectionTargets.length > 0) {
       targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
+    }
+
+    // Compute estimatedAnnualReturn from currentPrice and targetPrice5y if not extracted
+    if (estimatedAnnualReturn === null && targetPrice5y && currentPrice && currentPrice > 0) {
+      const years = projectionTargets.length > 0
+        ? projectionTargets[projectionTargets.length - 1].year - new Date().getFullYear() + 1
+        : 5;
+      if (years > 0) {
+        estimatedAnnualReturn = Math.pow(targetPrice5y / currentPrice, 1 / years) - 1;
+      }
     }
   }
 
