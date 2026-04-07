@@ -63,8 +63,15 @@ export default function Tracking() {
   const refreshPrice = async (company: TrackingCompany) => {
     setRefreshingId(company.id);
     try {
+      // Determine source currency from exchange so the edge function fetches from the right market
+      const exchangeToCurrency: Record<string, string> = {
+        TSX: "CAD", CVE: "CAD", LON: "GBP", EPA: "EUR", AMS: "EUR", BIT: "EUR",
+        ETR: "EUR", FRA: "EUR", SWX: "CHF", TYO: "JPY", STO: "SEK",
+      };
+      const sourceCurrency = company.exchange ? exchangeToCurrency[company.exchange] : undefined;
+
       const { data, error } = await supabase.functions.invoke("fetch-stock-price", {
-        body: { ticker: company.ticker, currency: company.currency },
+        body: { ticker: company.ticker, currency: company.currency, sourceCurrency },
       });
       if (error) throw error;
       if (data?.success && data.data?.price) {
