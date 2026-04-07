@@ -297,17 +297,20 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     .filter((r): r is number => r != null && r >= 0 && r < 2 && isFinite(r));
   const medianCapitalReturnRatio = capitalReturnRatios.length > 0 ? med(capitalReturnRatios) : 0;
 
+  // ─── Projected capital allocation percentages (rolling medians) ───
+  const histWithCFForAlloc = hist.filter((h, i) => !(sa(raw.capex, i) === 0 && sa(raw.repurchaseStock, i) === 0 && i === N - 1));
+  const medCapexExpPct = med(histWithCFForAlloc.map(h => h.capexExpPct));
+  const medAcqPct = med(histWithCFForAlloc.map(h => h.acqPct));
+  const medDivPct = med(histWithCFForAlloc.map(h => h.divPct));
+  const medBuybackPct = med(histWithCFForAlloc.map(h => h.buybackPct));
+  const medDebtRepayPct = med(histWithCFForAlloc.map(h => h.debtRepayPct));
+
   const proj: YC[] = [];
   let prevSales = inputs.lastSales;
   let prevDA = inputs.lastDA;
   let prevShares = inputs.lastShares;
   let prevWC = last.wc;
-  let prevCashEq = last.cashEq;
-  let prevMktSec = last.mktSec;
   let prevNetDebt = last.netDebt;
-  let prevTotalDebt = lastTotalDebt;
-  let prevStDebt = last.stDebt;
-  let prevLtDebt = last.ltDebt;
 
   for (let j = 0; j < 5; j++) {
     const gr = inputs.growthRates[j] ?? 0.10;
@@ -316,42 +319,11 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const ebit = sales * (inputs.ebitMarginEst[j] ?? 0.30);
     const ebitda = ebit - da;
 
-    const ndRatio = inputs.netDebtToEBITDA[j] ?? 0.3;
-    const netDebt = ndRatio * ebitda;
-
-    let projCashEq = 0;
-    let projMktSec = 0;
-    let projTotalDebt = 0;
-
-    if (j === 0) {
-      const totalCashSec = netDebt > 0
-        ? minCashSecToSales * sales
-        : Math.abs(prevNetDebt) > 0
-          ? ((prevCashEq + prevMktSec) / Math.abs(prevNetDebt)) * Math.abs(netDebt)
-          : (prevCashEq + prevMktSec);
-
-      projCashEq = totalCashSec * cashPct;
-      projMktSec = totalCashSec * secPct;
-      projTotalDebt = netDebt > 0
-        ? netDebt + totalCashSec
-        : Math.abs(prevNetDebt) > 0
-          ? (prevTotalDebt / Math.abs(prevNetDebt)) * Math.abs(netDebt)
-          : prevTotalDebt;
-    } else {
-      projCashEq = prevSales > 0 ? (prevCashEq / prevSales) * sales : prevCashEq;
-      projMktSec = prevSales > 0 ? (prevMktSec / prevSales) * sales : prevMktSec;
-      projTotalDebt = Math.abs(prevNetDebt) > 0
-        ? (prevTotalDebt / Math.abs(prevNetDebt)) * Math.abs(netDebt)
-        : netDebt > 0
-          ? netDebt + projCashEq + projMktSec
-          : prevTotalDebt;
-    }
-
-    const projStDebt = prevTotalDebt > 0 ? (prevStDebt / prevTotalDebt) * projTotalDebt : stPct * projTotalDebt;
-    const projLtDebt = prevTotalDebt > 0 ? (prevLtDebt / prevTotalDebt) * projTotalDebt : ltPct * projTotalDebt;
-
-    const intExp = -(avgIntExpRate * projTotalDebt);
-    const intInc = avgIntIncRate * projMktSec;
+    // Interest: use historical average rates applied to previous net debt structure
+    const prevTotalDebt = Math.max(0, prevNetDebt + (j === 0 ? lastCashPlusSec : (proj[j - 1].cashEq + proj[j - 1].mktSec)));
+    const prevCashSec = j === 0 ? lastCashPlusSec : (proj[j - 1].cashEq + proj[j - 1].mktSec);
+    const intExp = -(avgIntExpRate * prevTotalDebt);
+    const intInc = avgIntIncRate * (prevCashSec * secPct);
     const totalInt = intExp + intInc;
 
     const ebt = ebit + totalInt;
@@ -373,6 +345,47 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const fcf = ebitda + capexMant + totalInt + tax - cwc + mi;
     const fcfps = fcf / shares;
 
+    // ─── Capital allocation percentages (new v2026.1 logic) ───
+    // If guidance is provided, override the rolling median
+    let capexExpPct = medCapexExpPct;
+    let acqPct = medAcqPct;
+    let buybackPct = medBuybackPct;
+    const divPct = medDivPct;
+    const debtRepayPct = medDebtRepayPct;
+
+    // Guidance overrides: CapEx total → capexExpPct = (totalCapex + capexMant) / FCF
+    const gCapex = inputs.guidanceCapexTotal?.[j];
+    if (gCapex != null && gCapex !== 0 && fcf > 0) {
+      // gCapex is negative (cash outflow), capexMant is also negative
+      // CapEx Expansion = |Total CapEx| - |CapEx Mant| = |gCapex| - |capexMant|
+      capexExpPct = Math.max(0, (Math.abs(gCapex) - Math.abs(capexMant)) / fcf);
+    }
+    const gAcq = inputs.guidanceAcquisitions?.[j];
+    if (gAcq != null && gAcq !== 0 && fcf > 0) {
+      acqPct = Math.abs(gAcq) / fcf;
+    }
+    const gBuyback = inputs.guidanceBuybacks?.[j];
+    if (gBuyback != null && gBuyback !== 0 && fcf > 0) {
+      buybackPct = Math.abs(gBuyback) / fcf;
+    }
+
+    const totalAllocPct = capexExpPct + acqPct + divPct + buybackPct + debtRepayPct;
+
+    // ─── Net Change in Cash = FCF × (1 - totalAllocPct) ───
+    const netCashChange = fcf * (1 - totalAllocPct);
+
+    // ─── Net Debt = prevNetDebt - netCashChange ───
+    const netDebt = prevNetDebt - netCashChange;
+
+    // ─── Derive balance sheet from net debt ───
+    // Cash+Sec scaled by sales, debt = netDebt + cash+sec
+    const projCashSec = minCashSecToSales * sales;
+    const projCashEq = projCashSec * cashPct;
+    const projMktSec = projCashSec * secPct;
+    const projTotalDebtVal = netDebt + projCashSec;
+    const projStDebt = stPct * Math.max(0, projTotalDebtVal);
+    const projLtDebt = ltPct * Math.max(0, projTotalDebtVal);
+
     // Valuation at current price
     const mktCap = inputs.currentPrice * shares;
     const ev = mktCap + netDebt;
@@ -380,7 +393,6 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     const nopat = ebit * (1 - yearTaxRate);
 
     // Projected equity: retained earnings model
-    // Equity = prevEquity + NetIncome × (1 - capitalReturnRatio)
     const prevEquity = j === 0 ? last.equity : proj[j - 1].equity;
     const retainedEarnings = netIncome * (1 - medianCapitalReturnRatio);
     const projEquity = prevEquity + retainedEarnings;
@@ -397,7 +409,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       intExp, intInc, totalInt, ebt, tax, taxRate: yearTaxRate,
       consolNI, mi, netIncome, eps, shares,
       capexMant, wc, cwc, fcf, fcfps,
-      netCashChange: inputs.netCashChange[j] ?? 0,
+      netCashChange,
       inv: 0, ar: 0, ap: 0, urC: 0, urNC: 0,
       nopat, cashEq: projCashEq, mktSec: projMktSec,
       stDebt: projStDebt, ltDebt: projLtDebt,
@@ -407,7 +419,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
       mktCap, netDebt, ev,
       per: s(mktCap, netIncome), evFcf: s(ev, fcf),
       evEbitda: s(ev, ebitda), evEbit: s(ev, ebit),
-      capexExpPct: 0, acqPct: 0, divPct: 0, buybackPct: 0, debtRepayPct: 0, totalAllocPct: 0,
+      capexExpPct, acqPct, divPct, buybackPct, debtRepayPct, totalAllocPct,
       impPct: 0, sbcPct: 0, divstPct: 0, issuancePct: 0, extraPct: 0,
     });
 
@@ -415,12 +427,7 @@ export function calculateFullModel(raw: TikrRawData, inputs: TikrModelInputs): F
     prevDA = da;
     prevShares = shares;
     prevWC = wc;
-    prevCashEq = projCashEq;
-    prevMktSec = projMktSec;
     prevNetDebt = netDebt;
-    prevTotalDebt = projTotalDebt;
-    prevStDebt = projStDebt;
-    prevLtDebt = projLtDebt;
   }
 
   // ═══ STEP 16-17: Target prices, CAGR, Safety margin ═══
