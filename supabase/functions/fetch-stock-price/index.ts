@@ -21,24 +21,16 @@ interface GoogleFinanceSummary {
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-
   if (typeof value === "string") {
     const normalized = Number(value.replace(/,/g, "").trim());
     return Number.isFinite(normalized) ? normalized : null;
   }
-
   return null;
 }
 
 function toTitleCase(value: string | null): string | null {
   if (!value) return null;
-
-  return value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return value.trim().split(/\s+/).filter(Boolean).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
 }
 
 const SECTOR_MAP: Record<string, string> = {
@@ -94,14 +86,10 @@ function mapSector(rawSector: string | null): string | null {
 function extractInitDataBlock(html: string, key: string): unknown[] | null {
   const keyIndex = html.indexOf(`key: '${key}'`);
   if (keyIndex === -1) return null;
-
   const dataIndex = html.indexOf("data:", keyIndex);
   const sideChannelIndex = html.indexOf(", sideChannel:", dataIndex);
-
   if (dataIndex === -1 || sideChannelIndex === -1) return null;
-
   const rawData = html.slice(dataIndex + 5, sideChannelIndex).trim();
-
   try {
     return JSON.parse(rawData);
   } catch (error) {
@@ -115,13 +103,10 @@ function extractDs1Data(html: string): GoogleFinanceSummary {
   const summary = Array.isArray(ds1Data?.[0]) && Array.isArray(ds1Data[0]?.[0])
     ? ds1Data[0][0] as unknown[]
     : null;
-
   if (!summary) {
     return { currentPrice: null, week52High: null, week52Low: null, sector: null };
   }
-
   const rawSector = typeof summary[summary.length - 1] === "string" ? summary[summary.length - 1] : null;
-
   return {
     currentPrice: toNumber(summary[8]),
     week52High: toNumber(summary[12]),
@@ -130,7 +115,7 @@ function extractDs1Data(html: string): GoogleFinanceSummary {
   };
 }
 
-// Map exchange → currency of that exchange
+// Map exchange → currency
 const EXCHANGE_CURRENCY: Record<string, string> = {
   NASDAQ: "USD", NYSE: "USD",
   TSX: "CAD", CVE: "CAD",
@@ -146,6 +131,7 @@ const EXCHANGE_CURRENCY: Record<string, string> = {
 };
 
 const EXCHANGE_BY_CURRENCY: Record<string, string[]> = {
+  USD: ["NASDAQ", "NYSE"],
   EUR: ["AMS", "EPA", "BIT", "ETR", "FRA"],
   GBP: ["LON"],
   CHF: ["SWX"],
@@ -164,7 +150,7 @@ const EXCHANGE_BY_CURRENCY: Record<string, string[]> = {
 };
 
 /**
- * Fetch FX rate from Google Finance (e.g. CADUSD=X → how many USD per 1 CAD)
+ * Fetch FX rate from Google Finance
  */
 async function fetchFxRate(from: string, to: string): Promise<number | null> {
   if (from === to) return 1;
@@ -188,23 +174,39 @@ async function fetchFxRate(from: string, to: string): Promise<number | null> {
   }
 }
 
-async function fetchFromGoogleFinance(ticker: string, targetCurrency?: string): Promise<StockData> {
+/**
+ * Fetch stock price. 
+ * - `sourceCurrency`: the currency of the exchange where the stock primarily trades (e.g. CAD for TSX)
+ * - `targetCurrency`: the currency we want the result in (e.g. USD)
+ * If they differ, we convert using live FX rates.
+ */
+async function fetchFromGoogleFinance(
+  ticker: string,
+  targetCurrency?: string,
+  sourceCurrency?: string,
+): Promise<StockData> {
   const defaultExchanges = ["NASDAQ", "NYSE", "EPA", "BIT", "TSE", "AMS", "SWX", "TPE"];
   const cleanTicker = ticker.includes(":") ? ticker : null;
 
-  // Build exchange list: try ALL exchanges (local first, then defaults)
   let exchanges: string[];
   if (cleanTicker) {
     exchanges = [];
+  } else if (sourceCurrency && EXCHANGE_BY_CURRENCY[sourceCurrency]) {
+    // Prioritize exchanges for the SOURCE currency (where the stock actually trades)
+    const sourceExchanges = EXCHANGE_BY_CURRENCY[sourceCurrency];
+    exchanges = [
+      ...sourceExchanges,
+      ...defaultExchanges.filter((e) => !sourceExchanges.includes(e)),
+    ];
+  } else if (targetCurrency && targetCurrency !== "USD" && EXCHANGE_BY_CURRENCY[targetCurrency]) {
+    // Fallback: try target currency exchanges first
+    const targetExchanges = EXCHANGE_BY_CURRENCY[targetCurrency];
+    exchanges = [
+      ...targetExchanges,
+      ...defaultExchanges.filter((e) => !targetExchanges.includes(e)),
+    ];
   } else {
-    // Collect all known exchanges, prioritizing those for the ticker's likely home market
-    const allExchanges = new Set<string>();
-    // Add all exchange options — we want to find the ticker wherever it trades
-    for (const exList of Object.values(EXCHANGE_BY_CURRENCY)) {
-      for (const ex of exList) allExchanges.add(ex);
-    }
-    for (const ex of defaultExchanges) allExchanges.add(ex);
-    exchanges = Array.from(allExchanges);
+    exchanges = defaultExchanges;
   }
 
   const urls = cleanTicker
@@ -232,26 +234,25 @@ async function fetchFromGoogleFinance(ticker: string, targetCurrency?: string): 
 
       if (!price) continue;
 
-      // Determine the currency of the exchange where we found the price
-      const sourceCurrency = exchange ? (EXCHANGE_CURRENCY[exchange] || "USD") : "USD";
+      const exchangeCurrency = exchange ? (EXCHANGE_CURRENCY[exchange] || "USD") : "USD";
 
-      console.log(`${ticker}@${exchange || "direct"}: price=${price} ${sourceCurrency}, 52wH=${ds1.week52High}, 52wL=${ds1.week52Low}, sector=${ds1.sector}`);
+      console.log(`${ticker}@${exchange || "direct"}: price=${price} ${exchangeCurrency}, 52wH=${ds1.week52High}, 52wL=${ds1.week52Low}, sector=${ds1.sector}`);
 
-      // If the target currency differs from the source, convert
-      if (targetCurrency && targetCurrency !== sourceCurrency) {
-        const fxRate = await fetchFxRate(sourceCurrency, targetCurrency);
+      // Convert if target currency differs from the exchange currency
+      if (targetCurrency && targetCurrency !== exchangeCurrency) {
+        const fxRate = await fetchFxRate(exchangeCurrency, targetCurrency);
         if (fxRate) {
-          console.log(`Converting ${sourceCurrency}→${targetCurrency} @${fxRate}: ${price} → ${(price * fxRate).toFixed(2)}`);
+          console.log(`Converting ${exchangeCurrency}→${targetCurrency} @${fxRate}: ${price} → ${(price * fxRate).toFixed(2)}`);
           return {
             price: Math.round(price * fxRate * 100) / 100,
             week52High: ds1.week52High ? Math.round(ds1.week52High * fxRate * 100) / 100 : null,
             week52Low: ds1.week52Low ? Math.round(ds1.week52Low * fxRate * 100) / 100 : null,
             sector: ds1.sector,
-            sourceCurrency,
+            sourceCurrency: exchangeCurrency,
             fxRate,
           };
         }
-        console.warn(`Could not get FX rate ${sourceCurrency}→${targetCurrency}, returning raw price`);
+        console.warn(`Could not get FX rate ${exchangeCurrency}→${targetCurrency}, returning raw price`);
       }
 
       return {
@@ -259,7 +260,7 @@ async function fetchFromGoogleFinance(ticker: string, targetCurrency?: string): 
         week52High: ds1.week52High,
         week52Low: ds1.week52Low,
         sector: ds1.sector,
-        sourceCurrency,
+        sourceCurrency: exchangeCurrency,
       };
     } catch (error) {
       console.error(`Error fetching ${url}:`, error);
@@ -275,7 +276,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { ticker, currency } = await req.json();
+    const { ticker, currency, sourceCurrency } = await req.json();
 
     if (!ticker) {
       return new Response(
@@ -284,8 +285,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("Fetching price for:", ticker, currency ? `(target: ${currency})` : "");
-    const data = await fetchFromGoogleFinance(ticker, currency);
+    console.log("Fetching price for:", ticker, currency ? `(target: ${currency})` : "", sourceCurrency ? `(source: ${sourceCurrency})` : "");
+    const data = await fetchFromGoogleFinance(ticker, currency, sourceCurrency);
 
     return new Response(
       JSON.stringify({ success: true, data }),
