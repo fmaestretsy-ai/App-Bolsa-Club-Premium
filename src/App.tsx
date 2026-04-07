@@ -28,6 +28,9 @@ import Tracking from "./pages/Tracking";
 import FiscalSummary from "./pages/FiscalSummary";
 import InvestmentTheses from "./pages/InvestmentTheses";
 import Alerts from "./pages/Alerts";
+import Dividends from "./pages/Dividends";
+import RiskControl from "./pages/RiskControl";
+import Journal from "./pages/Journal";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +64,9 @@ const App = () => (
               <Route path="/fiscal" element={<P><FiscalSummary /></P>} />
               <Route path="/theses" element={<P><InvestmentTheses /></P>} />
               <Route path="/alerts" element={<P><Alerts /></P>} />
+              <Route path="/dividends" element={<P><Dividends /></P>} />
+              <Route path="/risk" element={<P><RiskControl /></P>} />
+              <Route path="/journal" element={<P><Journal /></P>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
