@@ -770,21 +770,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     }
   }
 
-  let valProjCols = projCols;
-  if (val.length > 0) {
-    for (let r = 0; r < Math.min(5, val.length); r++) {
-      const row = val[r];
-      if (!row) continue;
-      const hasYear = row.some((cell: unknown) => {
-        if (typeof cell === "number") return (cell >= 2000 && cell <= 2060) || (cell > 30000 && cell < 60000);
-        return false;
-      });
-      if (hasYear) {
-        valProjCols = findProjectedCols(val[r]).projCols;
-        break;
-      }
-    }
-  }
   // ─── Guidance extraction (rows 36-38 in 2.FCF) ───
   const guidanceCapexRow = findRowIdx(fcf, "capex total");
   const guidanceAcqRow = guidanceCapexRow >= 0 ? guidanceCapexRow + 1 : findRowIdx(fcf, "adquisiciones");
