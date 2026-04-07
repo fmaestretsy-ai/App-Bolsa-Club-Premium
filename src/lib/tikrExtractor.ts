@@ -443,7 +443,10 @@ function readCapexMantOverrideFromSummary(wb: XLSX.WorkBook, raw: TikrRawData): 
   if (fcf2.length < 5) return;
 
   const headerRow = fcf2[1];
-  const capexMantRowIdx = findRowIdx(fcf2, "capex mantenimiento", "maintenance capex");
+  const capexMantRowIdx = fcf2.findIndex((row) => {
+    const label = normalizeLabel(row?.[0]);
+    return label === "(-) capex mantenimiento - en negativo" || label === "(-) maintenance capex";
+  });
   if (!headerRow || capexMantRowIdx < 0) return;
 
   const capexMantRow = fcf2[capexMantRowIdx];
