@@ -217,6 +217,10 @@ function extractSummaryData(wb: XLSX.WorkBook, companyCurrency: string | null = 
   if (valSheetName) {
     const sheet = wb.Sheets[valSheetName];
     const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+    const hasUsdTargetRows = data.some((row) => {
+      const label = String(row?.[0] ?? "").trim();
+      return /^(per ex cash|ev\s*\/\s*fcf|ev\s*\/\s*ebitda|ev\s*\/\s*ebit|promedio)\s*\(usd\)$/i.test(label);
+    });
 
     // Detect year columns from row 1 (the header row with years)
     let mainYearInfo: ReturnType<typeof detectYearColumns> | null = null;
@@ -340,17 +344,12 @@ function extractSummaryData(wb: XLSX.WorkBook, companyCurrency: string | null = 
 
         const lowerLabel = label.toLowerCase().trim();
 
-        // Currency-aware row selection:
-        // If company currency is non-USD (e.g. CAD), prefer the row with that currency suffix.
-        // If company currency is USD or unknown, use the base row (no suffix).
         const currencyMatch = lowerLabel.match(/\(([a-z]{3})\)$/i);
         const rowCurrency = currencyMatch ? currencyMatch[1].toUpperCase() : null;
         const effectiveCurrency = (companyCurrency ?? "USD").toUpperCase();
-        const useThisRow = effectiveCurrency === "USD"
-          ? rowCurrency === null          // USD: use base row (no suffix)
-          : rowCurrency === null           // non-USD: use matching suffix if it exists
-            ? true                         // fallback to base row
-            : rowCurrency === effectiveCurrency; // use matching currency row
+        const useThisRow = hasUsdTargetRows
+          ? rowCurrency === "USD"
+          : rowCurrency === null || rowCurrency === effectiveCurrency;
 
         if (useThisRow) {
           for (const [key, field] of Object.entries(methodMap)) {
@@ -471,6 +470,18 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
           if (m) { detectedCurrency = (m[1] || m[2]).toUpperCase(); break outer1; }
         }
       }
+    }
+  }
+
+  const valuationSheetName = wb.SheetNames.find(s => /valoraci[oó]n|valuation/i.test(s));
+  if (valuationSheetName) {
+    const valuationRows: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[valuationSheetName], { header: 1, defval: null });
+    const hasUsdValuationRows = valuationRows.some((row) => {
+      const label = String(row?.[0] ?? "").trim();
+      return /^(per ex cash|ev\s*\/\s*fcf|ev\s*\/\s*ebitda|ev\s*\/\s*ebit|promedio)\s*\(usd\)$/i.test(label);
+    });
+    if (hasUsdValuationRows) {
+      detectedCurrency = "USD";
     }
   }
 

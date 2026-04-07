@@ -285,13 +285,18 @@ export default function ExcelUpload() {
             body: { ticker: parsed.ticker, currency: parsed.currency ?? 'USD' },
           });
           if (priceData?.success && priceData.data?.price) {
-            await supabase.from("companies").update({
-              current_price: priceData.data.price,
+            const companyUpdate: any = {
               week_52_high: priceData.data.week52High,
               week_52_low: priceData.data.week52Low,
               sector: priceData.data.sector || undefined,
               last_price_update: new Date().toISOString(),
-            }).eq("id", companyId);
+            };
+
+            if (parsed.currentPrice == null) {
+              companyUpdate.current_price = priceData.data.price;
+            }
+
+            await supabase.from("companies").update(companyUpdate).eq("id", companyId);
             queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
           }
         } catch (e) {
