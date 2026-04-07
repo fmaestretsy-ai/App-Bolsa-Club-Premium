@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Building2, Upload, TrendingUp, LineChart,
-  Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, BarChart3, Table2
+  Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, BarChart3, Table2, Receipt
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -39,6 +39,7 @@ export function AppSidebar() {
   const portfolioItems = [
     { title: t("nav.portfolio"), url: "/portfolio", icon: Briefcase },
     { title: t("nav.trades"), url: "/trades", icon: ArrowLeftRight },
+    { title: i18n.language === "es" ? "Fiscal" : "Tax Summary", url: "/fiscal", icon: Receipt },
     { title: t("nav.watchlist"), url: "/watchlist", icon: Eye },
   ];
 
