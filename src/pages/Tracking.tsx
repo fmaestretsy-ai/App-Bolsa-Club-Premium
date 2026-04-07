@@ -25,14 +25,13 @@ function pctOf52w(current: number | null, high: number | null, low: number | nul
 
 function PriceBar({ pct }: { pct: number | null }) {
   if (pct === null) return <span className="text-xs text-muted-foreground">—</span>;
-
   const width = Math.min(100, Math.max(4, pct));
   const fillClass = pct <= 35 ? "bg-success" : "bg-warning";
 
   return (
-    <div className="mx-auto w-24" aria-label={`${pct.toFixed(0)}% del rango de 52 semanas`}>
-      <div className="h-4 w-full overflow-hidden rounded-sm border border-border bg-accent">
-        <div className={`h-full rounded-r-sm ${fillClass}`} style={{ width: `${width}%` }} />
+    <div className="mx-auto w-24" aria-label={`${pct.toFixed(0)}% of 52-week range`}>
+      <div className="h-3.5 w-full overflow-hidden rounded-full border border-border/50 bg-muted">
+        <div className={`h-full rounded-full ${fillClass} transition-all duration-500`} style={{ width: `${width}%` }} />
       </div>
     </div>
   );
@@ -50,18 +49,11 @@ export default function Tracking() {
     queryKey: ["tracking-companies"],
     queryFn: async () => {
       const [{ data, error }, { data: uploads, error: uploadsError }] = await Promise.all([
-        supabase
-          .from("companies")
-          .select("*")
-          .order("name"),
-        supabase
-          .from("excel_uploads")
-          .select("company_id")
-          .not("company_id", "is", null),
+        supabase.from("companies").select("*").order("name"),
+        supabase.from("excel_uploads").select("company_id").not("company_id", "is", null),
       ]);
       if (error) throw error;
       if (uploadsError) throw uploadsError;
-
       const activeCompanyIds = new Set((uploads ?? []).map((upload) => upload.company_id).filter(Boolean));
       return (data ?? []).filter((company) => activeCompanyIds.has(company.id));
     },
@@ -85,25 +77,15 @@ export default function Tracking() {
           sector: data.data.sector || company.sector || null,
           last_price_update: new Date().toISOString(),
         };
-
-        // Recalculate estimated_annual_return based on new price and target_price_5y
         if (company.target_price_5y && newPrice > 0) {
           const years = 5;
           const newReturn = Math.pow(company.target_price_5y / newPrice, 1 / years) - 1;
           updateFields.estimated_annual_return = newReturn;
-
-          // Recalculate price_for_15_return (discount target by 15% CAGR)
           const targetReturn = 0.15;
           updateFields.price_for_15_return = company.target_price_5y / Math.pow(1 + targetReturn, years);
         }
-
-        const { error: updateError } = await supabase
-          .from("companies")
-          .update(updateFields)
-          .eq("id", company.id);
-
+        const { error: updateError } = await supabase.from("companies").update(updateFields).eq("id", company.id);
         if (updateError) throw updateError;
-
         queryClient.invalidateQueries({ queryKey: ["tracking-companies"] });
         toast.success(`${company.ticker}: ${sym}${newPrice}`);
       } else {
@@ -139,46 +121,46 @@ export default function Tracking() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
               {isEs ? "Seguimiento Empresas Pilares" : "Core Companies Tracking"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isEs ? "Empresas Pilares IDC : Seguimiento" : "IDC Core Companies : Tracking"}
             </p>
           </div>
-          <Button onClick={refreshAll} variant="outline" size="sm" disabled={!!refreshingId}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${refreshingId ? "animate-spin" : ""}`} />
+          <Button onClick={refreshAll} variant="outline" size="sm" disabled={!!refreshingId} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${refreshingId ? "animate-spin" : ""}`} />
             {isEs ? "Actualizar precios" : "Refresh prices"}
           </Button>
         </div>
 
-        <Card className="overflow-hidden">
+        <Card className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-primary/5">
-                  <TableHead className="font-semibold text-primary">{isEs ? "Empresa" : "Company"}</TableHead>
-                  <TableHead className="font-semibold text-primary">Ticker</TableHead>
-                  <TableHead className="font-semibold text-primary">{isEs ? "Industria" : "Industry"}</TableHead>
-                  <TableHead className="text-center font-semibold text-primary">{isEs ? "% Cotización últimas 52 sem" : "52W Range %"}</TableHead>
-                  <TableHead className="text-center font-semibold text-primary">{isEs ? "% Retorno anual est." : "Est. Annual Return"}</TableHead>
-                  <TableHead className="text-right font-semibold text-primary">{isEs ? "Precio 15% anual" : "Price for 15%"}</TableHead>
-                  <TableHead className="text-right font-semibold text-primary">{isEs ? "Precio actual" : "Current Price"}</TableHead>
-                  <TableHead className="text-right font-semibold text-primary">{isEs ? "Obj. 5 años" : "5Y Target"}</TableHead>
-                  <TableHead className="text-center font-semibold text-primary">{isEs ? "Divisa" : "Currency"}</TableHead>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="font-semibold text-foreground">{isEs ? "Empresa" : "Company"}</TableHead>
+                  <TableHead className="font-semibold text-foreground">Ticker</TableHead>
+                  <TableHead className="font-semibold text-foreground">{isEs ? "Industria" : "Industry"}</TableHead>
+                  <TableHead className="text-center font-semibold text-foreground">{isEs ? "52 sem" : "52W %"}</TableHead>
+                  <TableHead className="text-center font-semibold text-foreground">{isEs ? "Retorno est." : "Est. Return"}</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">{isEs ? "Precio 15%" : "Price 15%"}</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">{isEs ? "Actual" : "Current"}</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">{isEs ? "Obj. 5Y" : "5Y Target"}</TableHead>
+                  <TableHead className="text-center font-semibold text-foreground">{isEs ? "Divisa" : "CCY"}</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-12 text-center">
+                    <TableCell colSpan={10} className="py-16 text-center">
                       <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : companies.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="py-16 text-center text-muted-foreground">
                       {isEs ? "No hay empresas. Sube un Excel primero." : "No companies. Upload an Excel first."}
                     </TableCell>
                   </TableRow>
@@ -190,11 +172,11 @@ export default function Tracking() {
                       return (
                         <TableRow
                           key={company.id}
-                          className="cursor-pointer transition-colors hover:bg-accent/50"
+                          className="cursor-pointer transition-colors hover:bg-accent/40"
                           onClick={() => navigate(`/companies/${company.id}`)}
                         >
                           <TableCell className="font-medium text-foreground">{company.name}</TableCell>
-                          <TableCell className="font-mono text-sm text-muted-foreground">{company.ticker}</TableCell>
+                          <TableCell className="font-mono text-sm text-primary font-semibold">{company.ticker}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{company.sector || "—"}</TableCell>
                           <TableCell className="text-center">
                             <PriceBar pct={pct52} />
@@ -203,27 +185,24 @@ export default function Tracking() {
                             {company.estimated_annual_return != null ? (
                               <Badge
                                 variant={company.estimated_annual_return >= 0.15 ? "default" : company.estimated_annual_return >= 0.1 ? "secondary" : "destructive"}
-                                className="text-xs"
+                                className="text-xs font-semibold"
                               >
                                 {fmtPct(company.estimated_annual_return)}
                               </Badge>
                             ) : "—"}
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm">{fmt(company.price_for_15_return)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm font-medium">{fmt(company.current_price)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold">{fmt(company.current_price)}</TableCell>
                           <TableCell className="text-right font-mono text-sm">{fmt(company.target_price_5y)}</TableCell>
                           <TableCell className="text-center">
-                            <Badge variant="outline" className="text-xs">{company.currency}</Badge>
+                            <Badge variant="outline" className="text-xs font-mono">{company.currency}</Badge>
                           </TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                refreshPrice(company);
-                              }}
+                              className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary"
+                              onClick={(event) => { event.stopPropagation(); refreshPrice(company); }}
                               disabled={refreshingId === company.id}
                             >
                               {refreshingId === company.id ? (
@@ -242,7 +221,7 @@ export default function Tracking() {
           </div>
         </Card>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground/60">
           {isEs
             ? "Fuente: Google Finance; Plantillas de valoración de los clubs de inversión"
             : "Source: Google Finance; Investment club valuation templates"}

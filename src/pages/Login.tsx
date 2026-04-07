@@ -64,21 +64,26 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md animate-fade-in">
+      {/* Subtle background gradient */}
+      <div className="fixed inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/3 pointer-events-none" />
+
+      <div className="w-full max-w-md animate-fade-in relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary mb-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-lg shadow-primary/25" style={{ background: "var(--gradient-primary)" }}>
             <TrendingUp className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Club Premium</h1>
-          <p className="text-muted-foreground mt-1">{t("auth.welcomeSubtitle")}</p>
+          <h1 className="text-2xl font-bold text-foreground mt-4">
+            Club <span className="text-primary">Premium</span>
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t("auth.welcomeSubtitle")}</p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-8">
+        <div className="glass-card p-8">
           <h2 className="text-xl font-semibold text-card-foreground mb-6">
             {isLogin ? t("auth.welcomeBack") : t("auth.signup")}
           </h2>
 
-          <Button variant="outline" className="w-full mb-4 h-11" onClick={handleGoogleLogin}>
+          <Button variant="outline" className="w-full mb-4 h-11 font-medium" onClick={handleGoogleLogin}>
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -96,20 +101,20 @@ export default function Login() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <Label htmlFor="email" className="text-sm text-muted-foreground">{t("auth.email")}</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 h-11" required />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 h-11" required />
             </div>
             <div>
               <Label htmlFor="password" className="text-sm text-muted-foreground">{t("auth.password")}</Label>
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-11" required minLength={6} />
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1.5 h-11" required minLength={6} />
             </div>
-            <Button type="submit" className="w-full h-11" disabled={loading}>
+            <Button type="submit" className="w-full h-11 font-semibold shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow" disabled={loading}>
               {loading ? "..." : isLogin ? t("auth.login") : t("auth.signup")}
             </Button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
+          <p className="mt-5 text-center text-sm text-muted-foreground">
             {isLogin ? t("auth.noAccount") : t("auth.hasAccount")}{" "}
-            <button onClick={() => setIsLogin(!isLogin)} className="text-primary font-medium hover:underline">
+            <button onClick={() => setIsLogin(!isLogin)} className="text-primary font-semibold hover:underline">
               {isLogin ? t("auth.signup") : t("auth.login")}
             </button>
           </p>
