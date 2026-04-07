@@ -393,6 +393,16 @@ function extractSummaryData(wb: XLSX.WorkBook): {
     if (projectionTargets.length > 0) {
       targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
     }
+
+    // Compute estimatedAnnualReturn from currentPrice and targetPrice5y if not extracted
+    if (estimatedAnnualReturn === null && targetPrice5y && currentPrice && currentPrice > 0) {
+      const years = projectionTargets.length > 0
+        ? projectionTargets[projectionTargets.length - 1].year - new Date().getFullYear() + 1
+        : 5;
+      if (years > 0) {
+        estimatedAnnualReturn = Math.pow(targetPrice5y / currentPrice, 1 / years) - 1;
+      }
+    }
   }
 
   // Detect sector from any sheet
