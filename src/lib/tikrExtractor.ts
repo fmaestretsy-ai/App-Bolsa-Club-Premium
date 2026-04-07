@@ -823,5 +823,8 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     targetEVEBIT,
     targetReturn: n(val[targetReturnRow >= 0 ? targetReturnRow : 50]?.[1]) || 0.15,
     projectedMinorityInterest,
+    guidanceCapexTotal,
+    guidanceAcquisitions,
+    guidanceBuybacks,
   };
 }
