@@ -785,8 +785,19 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
       }
     }
   }
-  const ndEbitdaRow = findRowIdx(val, "deuda neta / ebitda", "net debt / ebitda", "nd/ebitda");
-  const netDebtToEBITDA = valProjCols.map(c => n(val[ndEbitdaRow >= 0 ? ndEbitdaRow : 4]?.[c]));
+  // ─── Guidance extraction (rows 36-38 in 2.FCF) ───
+  const guidanceCapexRow = findRowIdx(fcf, "capex total");
+  const guidanceAcqRow = guidanceCapexRow >= 0 ? guidanceCapexRow + 1 : findRowIdx(fcf, "adquisiciones");
+  const guidanceBuybackRow = guidanceAcqRow >= 0 ? guidanceAcqRow + 1 : findRowIdx(fcf, "recompras");
+
+  const readGuidance = (rowIdx: number): number[] | undefined => {
+    if (rowIdx < 0) return undefined;
+    const vals = fcfProjCols.map(c => n(fcf[rowIdx]?.[c]));
+    return vals.some(v => v !== 0) ? vals : undefined;
+  };
+  const guidanceCapexTotal = readGuidance(guidanceCapexRow);
+  const guidanceAcquisitions = readGuidance(guidanceAcqRow);
+  const guidanceBuybacks = readGuidance(guidanceBuybackRow);
 
   const taxRateRow = findRowIdx(is, "tax rate", "tasa impositiva");
   const taxRateEst = projCols.map(c => {
@@ -804,7 +815,6 @@ export function extractManualInputs(wb: XLSX.WorkBook): TikrModelInputs | null {
     capexMantToSales,
     wcToSalesEst,
     netCashChange,
-    netDebtToEBITDA,
     taxRateEst,
     currentPrice: extractPrimaryPrice(val[priceRow >= 0 ? priceRow : 18]),
     targetPER,
