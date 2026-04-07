@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Building2, Upload, TrendingUp, LineChart,
-  Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, BarChart3, Table2, Receipt, FileText, Bell
+  Briefcase, ArrowLeftRight, Eye, Settings, History, Calculator, LogOut, Sun, Moon, BarChart3, Table2, Receipt, FileText, Bell, DollarSign, Shield, BookOpen
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -39,10 +39,13 @@ export function AppSidebar() {
   const portfolioItems = [
     { title: t("nav.portfolio"), url: "/portfolio", icon: Briefcase },
     { title: t("nav.trades"), url: "/trades", icon: ArrowLeftRight },
+    { title: i18n.language === "es" ? "Dividendos" : "Dividends", url: "/dividends", icon: DollarSign },
     { title: i18n.language === "es" ? "Fiscal" : "Tax Summary", url: "/fiscal", icon: Receipt },
+    { title: i18n.language === "es" ? "Riesgo" : "Risk", url: "/risk", icon: Shield },
     { title: t("nav.watchlist"), url: "/watchlist", icon: Eye },
     { title: i18n.language === "es" ? "Tesis" : "Theses", url: "/theses", icon: FileText },
     { title: i18n.language === "es" ? "Alertas" : "Alerts", url: "/alerts", icon: Bell },
+    { title: "Journal", url: "/journal", icon: BookOpen },
   ];
 
   const systemItems = [
