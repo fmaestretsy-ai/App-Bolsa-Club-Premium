@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       companies: {
         Row: {
+          asset_type: string | null
           country: string
           created_at: string
           currency: string
@@ -39,6 +40,7 @@ export type Database = {
           week_52_low: number | null
         }
         Insert: {
+          asset_type?: string | null
           country?: string
           created_at?: string
           currency?: string
@@ -62,6 +64,7 @@ export type Database = {
           week_52_low?: number | null
         }
         Update: {
+          asset_type?: string | null
           country?: string
           created_at?: string
           currency?: string
@@ -411,6 +414,36 @@ export type Database = {
           },
         ]
       }
+      fx_rates: {
+        Row: {
+          created_at: string
+          from_currency: string
+          id: string
+          rate: number
+          rate_date: string
+          source: string | null
+          to_currency: string
+        }
+        Insert: {
+          created_at?: string
+          from_currency: string
+          id?: string
+          rate: number
+          rate_date: string
+          source?: string | null
+          to_currency: string
+        }
+        Update: {
+          created_at?: string
+          from_currency?: string
+          id?: string
+          rate?: number
+          rate_date?: string
+          source?: string | null
+          to_currency?: string
+        }
+        Relationships: []
+      }
       market_snapshots: {
         Row: {
           company_id: string
@@ -536,6 +569,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          base_currency: string | null
           created_at: string
           display_name: string | null
           id: string
@@ -544,6 +578,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          base_currency?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -552,6 +587,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          base_currency?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -633,45 +669,54 @@ export type Database = {
       }
       trades: {
         Row: {
+          amount_base: number | null
           commission: number | null
-          company_id: string
+          company_id: string | null
           created_at: string
           currency: string
+          currency_original: string | null
+          fx_rate_to_base: number | null
           id: string
           notes: string | null
           portfolio_id: string
-          price: number
-          shares: number
+          price: number | null
+          shares: number | null
           total: number
           trade_date: string
           trade_type: string
           user_id: string
         }
         Insert: {
+          amount_base?: number | null
           commission?: number | null
-          company_id: string
+          company_id?: string | null
           created_at?: string
           currency?: string
+          currency_original?: string | null
+          fx_rate_to_base?: number | null
           id?: string
           notes?: string | null
           portfolio_id: string
-          price: number
-          shares: number
+          price?: number | null
+          shares?: number | null
           total: number
           trade_date?: string
           trade_type: string
           user_id: string
         }
         Update: {
+          amount_base?: number | null
           commission?: number | null
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           currency?: string
+          currency_original?: string | null
+          fx_rate_to_base?: number | null
           id?: string
           notes?: string | null
           portfolio_id?: string
-          price?: number
-          shares?: number
+          price?: number | null
+          shares?: number | null
           total?: number
           trade_date?: string
           trade_type?: string
