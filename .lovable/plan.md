@@ -1,56 +1,47 @@
 
 
-## Plan: Detectar automáticamente la moneda del Excel y guardarla en la empresa
+## Verification Report: v2026.1 Template Adaptation
 
-### Problema
-Actualmente la moneda de cada empresa está hardcodeada como "USD" por defecto. Las acciones europeas (y de otros mercados) usan EUR, GBP, etc. Los archivos TIKR contienen típicamente un texto como "Amounts in EUR Millions" o "Currency: EUR" en las primeras filas de las hojas de datos.
+### What was requested
+The v2026.1 template changes the projection of "Net Change in Cash" to be driven by **capital allocation** (CapEx Expansion, Acquisitions, Dividends, Buybacks, Debt Repayment as % of FCF), replacing the old manual Net Debt/EBITDA ratio. The Net Debt in sheet 4.Valoración now flows automatically from this calculation.
 
-### Cambios
+### Code review findings
 
-**1. Detectar moneda en `src/lib/tikrExtractor.ts`**
-- Añadir función `detectCurrency(wb)` que escanee las primeras filas de las hojas TIKR (7.TIKR_IS, 8.TIKR_BS, etc.) buscando patrones como:
-  - "Amounts in XXX" / "Values in XXX"
-  - "Currency: XXX" / "Moneda: XXX"  
-  - "EUR Millions" / "USD Thousands"
-  - Formato de celdas numéricas (cell format strings contienen "€", "£", etc.)
-- Devuelve el código ISO detectado (EUR, USD, GBP...) o null si no se detecta.
-- Exportar desde `TikrRawData` un nuevo campo `currency: string | null`.
+**Correct implementations:**
+1. `netCashChange = FCF × (1 - totalAllocPct)` — line 375 of tikrCalculations.ts
+2. `netDebt = prevNetDebt - netCashChange` — line 378, correctly accumulates
+3. Guidance overrides (CapEx total, Acquisitions, Buybacks) extracted from "Guidance directiva" section — lines 773-799 of tikrExtractor.ts
+4. Allocation percentages use median of individual components (not median of total) — lines 302-306
+5. Net Debt/EBITDA is now a pure output, no longer a manual input
+6. Balance sheet items (Cash, Debt) derived from projected Net Debt — lines 382-387
 
-**2. Propagar moneda en `src/lib/excelParser.ts`**
-- Añadir `currency: string | null` a `ParsedFinancialData`.
-- En `parseExcelFile`, también buscar en las hojas de resumen (1-4) el mismo patrón de moneda.
-- Combinar: prioridad TIKR sheets > summary sheets > null.
+**Potential issue found — CapEx Mant double-counting of saleIntangibles:**
 
-**3. Guardar moneda en `ExcelUpload.tsx`**
-- Al crear/actualizar la empresa, incluir `currency: parsed.currency ?? 'USD'` en el insert/update de `companies`.
-- Así cada empresa tendrá su moneda correcta automáticamente tras el upload.
-
-### Detalle técnico
-
-```typescript
-// En tikrExtractor.ts
-function detectCurrency(wb: XLSX.WorkBook): string | null {
-  const CURRENCY_PATTERN = /(?:amounts?|values?|currency|moneda)\s+(?:in\s+)?(USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS)/i;
-  const UNIT_PATTERN = /(USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD)\s*(millions?|thousands?|billions?)/i;
-  
-  // Scan first 5 rows of TIKR sheets
-  for (const sheetName of wb.SheetNames) {
-    const sheet = wb.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-    for (let r = 0; r < Math.min(5, data.length); r++) {
-      for (const cell of data[r]) {
-        const s = String(cell ?? "");
-        const m = s.match(CURRENCY_PATTERN) || s.match(UNIT_PATTERN);
-        if (m) return m[1].toUpperCase();
-      }
-    }
-  }
-  return null;
-}
+Line 166-171 of tikrCalculations.ts:
+```text
+capexNeto = capexRaw + saleIntang + salePPE
+capexMantBase = |capexNeto| < deprec ? capexNeto : -deprec
+capexMant = capexMantBase + saleIntang   ← adds saleIntang again
 ```
 
-### Resultado
-- Al subir un Excel TIKR de una empresa europea, se detectará "EUR" automáticamente
-- La empresa se creará/actualizará con `currency: "EUR"`
-- Todas las páginas (Valuation, Projection, etc.) ya usan `getCurrencySymbol(company.currency)` del cambio anterior, así que mostrarán € automáticamente
+When `|capexNeto| < depreciation` AND `saleIntangibles ≠ 0`, `saleIntangibles` gets counted twice. This path is not triggered in current test cases (AMZN has saleIntang=0, ASML always exceeds depreciation), but it is a latent bug that could affect other companies.
+
+**Dead code:** `inputs.netCashChange` is extracted (line 735) but never used in projections — correct for v2026.1, but should be cleaned up.
+
+### Plan
+
+1. **Fix the saleIntangibles double-counting bug** in the historical CapEx Mant calculation (tikrCalculations.ts line 166-171). When `|capexNeto| < depreciation`, the result should be `capexNeto` directly (saleIntang is already included), not `capexNeto + saleIntang`.
+
+2. **Remove dead `netCashChange` extraction** from `extractManualInputs` and `TikrModelInputs` interface, since projections now calculate it from allocation percentages.
+
+3. **Run the CSU debug script** against the uploaded Excel to verify projected FCF, Net Change in Cash, Net Debt, and Net Debt/EBITDA match the workbook exactly for years 2026-2030.
+
+4. **Add a regression test** for the saleIntangibles edge case (company where `|capexNeto| < depreciation` AND `saleIntangibles ≠ 0`).
+
+### Technical details
+
+**File changes:**
+- `src/lib/tikrCalculations.ts`: Fix line 171 to `capexMantBase + (Math.abs(capexNeto) >= absDeprec ? saleIntang : 0)` — only add saleIntang separately when it wasn't already included via `capexNeto`
+- `src/lib/tikrExtractor.ts`: Remove `netCashChange` from `TikrModelInputs` and its extraction logic
+- `src/lib/__tests__/tikrCalculations.test.ts`: Add edge case test
 
