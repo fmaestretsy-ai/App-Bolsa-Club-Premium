@@ -8,6 +8,7 @@ import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useCompanyData";
+import { createTaxLot, consumeLotsForSale, adjustLotsForSplit } from "@/lib/fifoEngine";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -112,6 +113,18 @@ export function TradeDialog({ defaultCompanyId, trigger }: TradeDialogProps) {
           currency: company?.currency || "USD",
         });
       }
+      // Create FIFO tax lot
+      await createTaxLot({
+        userId: user!.id,
+        companyId: form.companyId,
+        portfolioId,
+        purchaseDate: form.date,
+        shares,
+        costPerShare: price,
+        costPerShareBase: price * fxRate,
+        currency: form.currency,
+        fxRate,
+      });
     } else if (form.tradeType === "sell") {
       if (pos) {
         const newS = Math.max(0, Number(pos.shares) - shares);
@@ -121,11 +134,27 @@ export function TradeDialog({ defaultCompanyId, trigger }: TradeDialogProps) {
           await supabase.from("portfolio_positions").update({ shares: newS }).eq("id", pos.id);
         }
       }
+      // Consume FIFO lots and record realized gain
+      await consumeLotsForSale({
+        userId: user!.id,
+        companyId: form.companyId,
+        portfolioId,
+        sellDate: form.date,
+        sharesToSell: shares,
+        sellPriceBase: price * fxRate,
+      });
     } else if (form.tradeType === "split" && pos) {
       const ratio = parseFloat(form.splitRatio) || 1;
       const newS = Number(pos.shares) * ratio;
       const newA = Number(pos.avg_cost) / ratio;
       await supabase.from("portfolio_positions").update({ shares: newS, avg_cost: Math.round(newA * 100) / 100 }).eq("id", pos.id);
+      // Adjust FIFO lots for split
+      await adjustLotsForSplit({
+        userId: user!.id,
+        companyId: form.companyId,
+        portfolioId,
+        ratio,
+      });
     }
     // dividend, commission, withholding → no position change
   };
