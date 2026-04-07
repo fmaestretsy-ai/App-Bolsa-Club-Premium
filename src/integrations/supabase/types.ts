@@ -444,6 +444,48 @@ export type Database = {
         }
         Relationships: []
       }
+      investment_theses: {
+        Row: {
+          buy_rationale: string | null
+          catalysts: string | null
+          company_id: string
+          created_at: string
+          id: string
+          next_review_date: string | null
+          risks: string | null
+          status: string
+          target_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          buy_rationale?: string | null
+          catalysts?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          next_review_date?: string | null
+          risks?: string | null
+          status?: string
+          target_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          buy_rationale?: string | null
+          catalysts?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          next_review_date?: string | null
+          risks?: string | null
+          status?: string
+          target_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_snapshots: {
         Row: {
           company_id: string
@@ -760,6 +802,42 @@ export type Database = {
         }
         Relationships: []
       }
+      thesis_versions: {
+        Row: {
+          buy_rationale: string | null
+          catalysts: string | null
+          id: string
+          risks: string | null
+          status: string | null
+          target_price: number | null
+          thesis_id: string
+          user_id: string
+          version_date: string
+        }
+        Insert: {
+          buy_rationale?: string | null
+          catalysts?: string | null
+          id?: string
+          risks?: string | null
+          status?: string | null
+          target_price?: number | null
+          thesis_id: string
+          user_id: string
+          version_date?: string
+        }
+        Update: {
+          buy_rationale?: string | null
+          catalysts?: string | null
+          id?: string
+          risks?: string | null
+          status?: string | null
+          target_price?: number | null
+          thesis_id?: string
+          user_id?: string
+          version_date?: string
+        }
+        Relationships: []
+      }
       trades: {
         Row: {
           amount_base: number | null
@@ -831,6 +909,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_alerts: {
+        Row: {
+          alert_type: string
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_triggered: boolean
+          last_triggered_at: string | null
+          notes: string | null
+          threshold: number
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_triggered?: boolean
+          last_triggered_at?: string | null
+          notes?: string | null
+          threshold: number
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_triggered?: boolean
+          last_triggered_at?: string | null
+          notes?: string | null
+          threshold?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       user_settings: {
         Row: {
