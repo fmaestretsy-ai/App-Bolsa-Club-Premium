@@ -186,7 +186,7 @@ const VALUATION_ROW_MAP: [RegExp, keyof ProjectionData][] = [
 // Row pattern to extract projected diluted shares from IS sheet
 const DILUTED_SHARES_PATTERN = /^Fully diluted shares|^Weighted Average Diluted|^Diluted shares/i;
 
-function extractSummaryData(wb: XLSX.WorkBook): {
+function extractSummaryData(wb: XLSX.WorkBook, companyCurrency: string | null = null): {
   sector: string | null;
   targetPrice5y: number | null;
   priceFor15Return: number | null;
@@ -340,10 +340,19 @@ function extractSummaryData(wb: XLSX.WorkBook): {
 
         const lowerLabel = label.toLowerCase().trim();
 
-        // Skip currency-variant rows (e.g. "EV / FCF (CAD)") — only use base/USD row
-        const isCurrencyVariant = /\((?!usd)[a-z]{3}\)$/i.test(lowerLabel);
+        // Currency-aware row selection:
+        // If company currency is non-USD (e.g. CAD), prefer the row with that currency suffix.
+        // If company currency is USD or unknown, use the base row (no suffix).
+        const currencyMatch = lowerLabel.match(/\(([a-z]{3})\)$/i);
+        const rowCurrency = currencyMatch ? currencyMatch[1].toUpperCase() : null;
+        const effectiveCurrency = (companyCurrency ?? "USD").toUpperCase();
+        const useThisRow = effectiveCurrency === "USD"
+          ? rowCurrency === null          // USD: use base row (no suffix)
+          : rowCurrency === null           // non-USD: use matching suffix if it exists
+            ? true                         // fallback to base row
+            : rowCurrency === effectiveCurrency; // use matching currency row
 
-        if (!isCurrencyVariant) {
+        if (useThisRow) {
           for (const [key, field] of Object.entries(methodMap)) {
             if (lowerLabel.startsWith(key)) {
               for (let i = 0; i < precioObjetivoYears.length; i++) {
@@ -402,6 +411,16 @@ function extractSummaryData(wb: XLSX.WorkBook): {
       targetPrice5y = projectionTargets[projectionTargets.length - 1]?.targetPrice ?? null;
     }
 
+    // Always recalculate priceFor15Return from targetPrice5y to ensure consistent currency
+    if (targetPrice5y) {
+      const years = projectionTargets.length > 0
+        ? projectionTargets[projectionTargets.length - 1].year - new Date().getFullYear() + 1
+        : 5;
+      if (years > 0) {
+        priceFor15Return = targetPrice5y / Math.pow(1.15, years);
+      }
+    }
+
     // Compute estimatedAnnualReturn from currentPrice and targetPrice5y if not extracted
     if (estimatedAnnualReturn === null && targetPrice5y && currentPrice && currentPrice > 0) {
       const years = projectionTargets.length > 0
@@ -434,15 +453,13 @@ function extractSummaryData(wb: XLSX.WorkBook): {
 export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFinancialData {
   const wb = XLSX.read(buffer, { type: "array" });
   const { name: detectedName, ticker: detectedTicker } = detectCompanyFromFileName(fileName);
-  const summaryData = extractSummaryData(wb);
 
-  // Detect currency from TIKR sheets or summary headers
+  // Detect currency BEFORE extracting summary so we can pick the right currency rows
   let detectedCurrency: string | null = detectCurrency(wb);
   if (!detectedCurrency) {
-    // Fallback: scan first rows of summary sheets
     const CURRENCY_CODES = "USD|EUR|GBP|JPY|CHF|SEK|NOK|DKK|CAD|AUD|CNY|KRW|INR|HKD|SGD|TWD|MXN|BRL|PLN|ZAR|TRY|CLP|COP|PEN|ARS";
     const pattern = new RegExp(`(?:amounts?|values?|currency|reported)\\s+(?:in\\s+)?(${CURRENCY_CODES})|(${CURRENCY_CODES})\\s*(?:millions?|thousands?|MM|M)`, "i");
-    outer: for (const sheetName of wb.SheetNames.slice(0, 4)) {
+    outer1: for (const sheetName of wb.SheetNames.slice(0, 4)) {
       const sheet = wb.Sheets[sheetName];
       if (!sheet) continue;
       const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -451,11 +468,14 @@ export function parseExcelFile(buffer: ArrayBuffer, fileName: string): ParsedFin
         if (!row) continue;
         for (const cell of row) {
           const m = String(cell ?? "").match(pattern);
-          if (m) { detectedCurrency = (m[1] || m[2]).toUpperCase(); break outer; }
+          if (m) { detectedCurrency = (m[1] || m[2]).toUpperCase(); break outer1; }
         }
       }
     }
   }
+
+  const summaryData = extractSummaryData(wb, detectedCurrency);
+
 
   const allPeriods = new Map<number, ParsedPeriod>();
   const sheetsToProcess = wb.SheetNames.slice(0, 4);
